@@ -16,6 +16,6 @@ out = ROOT / "qr"
 out.mkdir(exist_ok=True)
 for lid in ids:
     qr = segno.make(f"{site}?l={lid}", error="m")
-    qr.save(out / f"{lid}.svg", scale=10, border=2, dark="#17232e", xmldecl=False)
+    qr.save(out / f"{lid}.svg", scale=10, border=2, dark="#17232e", xmldecl=False, omitsize=True)  # viewBox замість width/height, щоб масштабувався
     qr.save(out / f"{lid}.png", scale=10, border=2, dark="#17232e")
 print(f"{len(ids)} QR-кодів у {out.relative_to(ROOT)}/ → {site}?l=…")
