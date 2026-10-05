@@ -3,36 +3,53 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Панель учителя</title>
+<title>Кабінет учителя</title>
+<meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="assets/style.css">
 </head>
 <body>
-<div class="wrap">
+<div class="wrap wide">
   <header>
     <a href="index.html" class="link">← Усі уроки</a>
     <div class="eyebrow" style="margin-top:12px">Для вчителя</div>
-    <h1>Панель учителя</h1>
+    <h1>Кабінет учителя</h1>
   </header>
 
   <section class="card" id="login">
-    <label class="fld">Пароль учителя<input type="password" id="pwd" autocomplete="off"></label>
+    <label class="fld">Пароль учителя<input type="password" id="pwd" autocomplete="current-password"></label>
     <button class="btn" id="enter">Увійти</button>
-    <p class="small muted" id="lmsg" style="margin:0"></p>
+    <p class="small errmsg" id="lmsg" role="alert"></p>
   </section>
 
-  <section class="card" id="panel" hidden>
-    <h2>Учні на цьому пристрої</h2>
-    <p class="small muted" style="margin:0">Тут видно спроби, зроблені саме в цьому браузері. Повна картина — у Google Таблиці.</p>
-    <div style="overflow-x:auto"><table class="t" id="stu"></table></div>
+  <!-- ===== Результати з Google Таблиці ===== -->
+  <section class="card" id="resCard" hidden>
+    <div class="rhead">
+      <h2 style="margin:0">Результати</h2>
+      <button class="btn ghost small-btn" id="reload">Оновити</button>
+    </div>
+    <div class="filters">
+      <label class="fld">Клас<select id="fCls"></select></label>
+      <label class="fld">Тест<select id="fTest"></select></label>
+      <label class="fld">Період<select id="fPer">
+        <option value="today">Сьогодні</option>
+        <option value="7">7 днів</option>
+        <option value="30">30 днів</option>
+        <option value="all">Увесь час</option>
+      </select></label>
+    </div>
+    <p class="small muted" id="resStatus" style="margin:0" aria-live="polite"></p>
 
-    <h2>Неочищена черга відправлення</h2>
-    <p class="small muted" id="outbox" style="margin:0"></p>
-    <button class="btn ghost" id="resend">Надіслати ще раз</button>
+    <div class="tiles" id="tiles"></div>
+    <div id="alerts"></div>
+
+    <div class="tablewrap"><table class="t res" id="resTable"></table></div>
+    <p class="small muted" style="margin:0">У підсумку рахується остання спроба кожного учня з кожного тесту; у таблиці — усі спроби. Повні дані — у <a id="sheetLink" class="link" target="_blank" rel="noopener">Google Таблиці</a>.</p>
   </section>
 
+  <!-- ===== Код уроку ===== -->
   <section class="card" id="codeCard" hidden>
     <h2>Код уроку</h2>
     <p style="margin:0">Код = твоє слово + поточна година за Києвом. Зараз <b id="nowHour"></b> → код <b>«слово<span id="nowHourN"></span>»</b>. Підходить і година до та після (±1), а також твій пароль учителя.</p>
@@ -42,28 +59,155 @@
     <p class="small muted" style="margin:0">Скопіюй рядок у <code>config.js</code> замість старого <code>LESSON_CODE_HASH</code> і закоміть.</p>
   </section>
 
-  <section class="card">
-    <h2>Новий пароль</h2>
-    <p class="small muted" style="margin:0">Введи новий пароль — нижче з'явиться рядок, який треба вставити в <code>config.js</code> замість старого <code>TEACHER_HASH</code>, і закомітити.</p>
+  <!-- ===== Цей пристрій ===== -->
+  <details class="card" id="devCard" hidden>
+    <summary><b>Цей пристрій</b> — спроби в цьому браузері, скинути спроби, черга відправлення</summary>
+    <p class="small muted" style="margin:0">Тут видно спроби, зроблені саме в цьому браузері (наприклад, на шкільному ПК). «Скинути» — учень зможе пройти тест на цьому пристрої знову.</p>
+    <div class="tablewrap"><table class="t" id="stu"></table></div>
+    <p class="small muted" id="outbox" style="margin:0"></p>
+    <button class="btn ghost" id="resend">Надіслати ще раз</button>
+  </details>
+
+  <!-- ===== Новий пароль ===== -->
+  <details class="card" id="pwdCard" hidden>
+    <summary><b>Новий пароль</b></summary>
+    <p class="small muted" style="margin:0">Введи новий пароль — з'явиться рядок. Встав його у <code>config.js</code> (сайт) <b>і</b> в <code>Code.gs</code> у таблиці (потім «Керувати розгортаннями» → нова версія), інакше кабінет не відкриє результати.</p>
     <input type="text" id="newPwd" placeholder="Новий пароль" autocomplete="off">
     <code id="hash"></code>
-  </section>
+  </details>
 </div>
 <script src="config.js"></script>
 <script src="assets/engine.js"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
-  $("newPwd").oninput = (e) => { $("hash").textContent = e.target.value ? `TEACHER_HASH: "${QZ.sha256(e.target.value.trim())}",` : ""; };
-  $("newWord").oninput = (e) => { const w = QZ.normWord(e.target.value); $("wordHash").textContent = w ? `LESSON_CODE_HASH: "${QZ.sha256(w)}",` : ""; };
-  const showHour = () => { const h = QZ.kyivHour(); $("nowHour").textContent = `${h}:xx`; $("nowHourN").textContent = h; };
-  $("enter").onclick = () => { if (QZ.checkTeacher($("pwd").value)) { $("login").hidden = true; $("panel").hidden = false; $("codeCard").hidden = false; showHour(); setInterval(showHour, 30000); render(); } else $("lmsg").textContent = "Неправильний пароль."; };
+  const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
+  const SHEET_ID = "1Fb-ir2MPd2_udBCns4VyMUwDokwH0tDVy9QiKzHYvlc";
+  let PWD = "", ROWS = [];
+
+  /* ---------- вхід ---------- */
+  $("enter").onclick = () => {
+    const p = $("pwd").value;
+    if (!QZ.checkTeacher(p)) { $("lmsg").textContent = "Неправильний пароль."; return; }
+    PWD = p.trim(); $("pwd").value = "";
+    $("login").hidden = true;
+    ["resCard", "codeCard", "devCard", "pwdCard"].forEach((id) => ($(id).hidden = false));
+    $("sheetLink").href = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/edit`;
+    showHour(); setInterval(showHour, 30000);
+    renderDevice(); loadResults();
+  };
   $("pwd").onkeydown = (e) => { if (e.key === "Enter") $("enter").click(); };
-  $("resend").onclick = () => { QZ.flush(); setTimeout(render, 1500); };
-  function render() {
+
+  /* ---------- результати з таблиці ---------- */
+  async function loadResults() {
+    if (!CONFIG.SHEETS_URL) { $("resStatus").textContent = "SHEETS_URL у config.js не вказано."; return; }
+    $("resStatus").textContent = "Завантажую з таблиці…"; $("reload").disabled = true;
+    try {
+      const r = await fetch(CONFIG.SHEETS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "results", pwd: PWD }) });
+      const text = await r.text();
+      let d; try { d = JSON.parse(text); } catch (e) { throw new Error("old-script"); }
+      if (!d.ok) throw new Error(d.error === "password" ? "pwd" : "server");
+      ROWS = d.rows.map((x) => ({ ...x, at: new Date(x.t) })).filter((x) => !isNaN(x.at));
+      fillFilters(); draw();
+      $("resStatus").textContent = `Оновлено о ${new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })} · усього записів: ${ROWS.length}`;
+    } catch (e) {
+      $("resStatus").textContent =
+        e.message === "old-script" ? "Скрипт у таблиці ще стара версія: встав новий Code.gs і розгорни «New version»." :
+        e.message === "pwd" ? "Таблиця не прийняла пароль: TEACHER_HASH у Code.gs не збігається з config.js." :
+        "Не вдалося завантажити результати. Перевір інтернет і натисни «Оновити».";
+    } finally { $("reload").disabled = false; }
+  }
+  $("reload").onclick = loadResults;
+
+  const kyivDay = (d) => d.toLocaleDateString("uk-UA", { timeZone: "Europe/Kyiv" });
+  const fmtAt = (d) => d.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const testKey = (x) => x.id || x.test;
+  const LEVELS = [
+    { key: "hi", label: "Високий", range: "10–12", test: (g) => g >= 10 },
+    { key: "ok", label: "Достатній", range: "7–9", test: (g) => g >= 7 && g <= 9 },
+    { key: "mid", label: "Середній", range: "4–6", test: (g) => g >= 4 && g <= 6 },
+    { key: "low", label: "Початковий", range: "1–3", test: (g) => g <= 3 }
+  ];
+  const levelOf = (g) => LEVELS.find((l) => l.test(+g)) || LEVELS[3];
+
+  function fillFilters() {
+    const keepCls = $("fCls").value, keepTest = $("fTest").value;
+    const cls = [...new Set([...(CONFIG.CLASSES || []), ...ROWS.map((x) => x.cls)])].filter(Boolean);
+    $("fCls").innerHTML = ""; $("fCls").append(new Option("Усі класи", ""));
+    cls.forEach((c) => $("fCls").append(new Option(c, c)));
+    const tests = new Map(); ROWS.forEach((x) => tests.set(testKey(x), x.test));
+    $("fTest").innerHTML = ""; $("fTest").append(new Option("Усі тести", ""));
+    [...tests].sort((a, b) => String(a[0]).localeCompare(String(b[0]), "uk", { numeric: true }))
+      .forEach(([k, title]) => $("fTest").append(new Option(title, k)));
+    $("fCls").value = cls.includes(keepCls) ? keepCls : "";
+    $("fTest").value = tests.has(keepTest) ? keepTest : "";
+  }
+  ["fCls", "fTest", "fPer"].forEach((id) => ($(id).onchange = draw));
+
+  function filtered() {
+    const c = $("fCls").value, t = $("fTest").value, per = $("fPer").value, now = Date.now(), today = kyivDay(new Date());
+    return ROWS.filter((x) =>
+      (!c || x.cls === c) && (!t || testKey(x) === t) &&
+      (per === "all" || (per === "today" ? kyivDay(x.at) === today : now - x.at <= +per * 864e5)));
+  }
+
+  function draw() {
+    const rows = filtered().sort((a, b) => String(a.cls).localeCompare(String(b.cls), "uk") || String(a.name).localeCompare(String(b.name), "uk") || a.at - b.at);
+    // остання спроба кожного учня з кожного тесту
+    const last = new Map();
+    rows.forEach((x) => { const k = `${testKey(x)}|${x.cls}|${String(x.name).toLowerCase()}`; const p = last.get(k); if (!p || x.at > p.at) last.set(k, x); });
+    const L = [...last.values()];
+
+    const tiles = $("tiles"); tiles.innerHTML = "";
+    const tile = (label, value, sub, cls) => { const t = el("div", "tile" + (cls ? " " + cls : "")); t.append(el("span", "tl", label), el("b", "tv", value), el("span", "ts", sub || "")); tiles.appendChild(t); };
+    const avg = L.length ? (L.reduce((s, x) => s + (+x.g || 0), 0) / L.length).toFixed(1).replace(".", ",") : "—";
+    tile("Учнів", String(new Set(L.map((x) => `${x.cls}|${String(x.name).toLowerCase()}`)).size), `робіт: ${L.length}`);
+    tile("Середня оцінка", avg, "з 12");
+    LEVELS.forEach((lv) => tile(lv.label, String(L.filter((x) => lv.test(+x.g)).length), lv.range + " балів", "lv-" + lv.key));
+    tile("Виходили з вкладки", String(L.filter((x) => +x.viol > 0).length), "учнів", L.some((x) => +x.viol > 0) ? "lv-warn" : "");
+
+    // підозри: один пристрій — кілька імен на тому самому тесті
+    const alerts = $("alerts"); alerts.innerHTML = "";
+    const byDev = new Map();
+    L.forEach((x) => { if (!x.dev) return; const k = `${testKey(x)}|${x.dev}`; if (!byDev.has(k)) byDev.set(k, { test: x.test, names: new Set() }); byDev.get(k).names.add(`${x.name} (${x.cls})`); });
+    const sus = [...byDev.values()].filter((v) => v.names.size > 1);
+    if (sus.length) {
+      const box = el("div", "info");
+      box.appendChild(el("b", "", "Один пристрій — кілька учнів. "));
+      box.appendChild(document.createTextNode("На шкільних ПК це нормально, на телефонах — варто глянути:"));
+      const ul = el("ul"); sus.forEach((v) => ul.appendChild(el("li", "", `${v.test}: ${[...v.names].join(", ")}`)));
+      box.appendChild(ul); alerts.appendChild(box);
+    }
+
+    const tb = $("resTable"); tb.innerHTML = "";
+    const head = el("tr"); ["Учень", "Клас", "Оцінка", "Тест", "Бали", "Виходи", "Спр.", "Хв", "Коли"].forEach((h) => head.appendChild(el("th", "", h)));
+    const thead = el("thead"); thead.appendChild(head); tb.appendChild(thead);
+    const body = el("tbody");
+    if (!rows.length) { const tr = el("tr"); const td = el("td", "muted", "За цими фільтрами записів немає."); td.colSpan = 9; tr.appendChild(td); body.appendChild(tr); }
+    rows.forEach((x) => {
+      const tr = el("tr");
+      const lv = levelOf(x.g);
+      const gcell = el("td", "g lv-" + lv.key); gcell.append(el("b", "", String(x.g)), el("span", "small muted", " " + lv.label.toLowerCase()));
+      tr.append(el("td", "", x.name), el("td", "num", x.cls), gcell, el("td", "small", x.test),
+        el("td", "num", `${x.score}/${x.total}`), el("td", "num" + (+x.viol > 0 ? " warn-t" : ""), String(x.viol || 0)),
+        el("td", "num", String(x.att)), el("td", "num", String(x.min ?? "")), el("td", "num small", fmtAt(x.at)));
+      if (x.note) tr.title = x.note;
+      body.appendChild(tr);
+    });
+    tb.appendChild(body);
+  }
+
+  /* ---------- код уроку ---------- */
+  $("newWord").oninput = (e) => { const w = QZ.normWord(e.target.value); $("wordHash").textContent = w ? `LESSON_CODE_HASH: "${QZ.sha256(w)}",` : ""; };
+  function showHour() { const h = QZ.kyivHour(); $("nowHour").textContent = `${h}:xx`; $("nowHourN").textContent = h; }
+
+  /* ---------- цей пристрій ---------- */
+  $("resend").onclick = () => { QZ.flush(); setTimeout(renderDevice, 1500); };
+  function renderDevice() {
     const keys = QZ.store.keys("qz:").filter((k) => k.includes(":stu:"));
     const t = $("stu");
     t.innerHTML = "<tr><th>Тест</th><th>Учень</th><th>Спроби</th><th>Оцінки</th><th></th></tr>";
+    if (!keys.length) { const tr = el("tr"); const td = el("td", "muted", "На цьому пристрої спроб немає."); td.colSpan = 5; tr.appendChild(td); t.appendChild(tr); }
     keys.sort().forEach((k) => {
       const r = QZ.store.get(k, {}); const [, test, , who] = k.split(":");
       const tr = document.createElement("tr");
@@ -71,12 +215,15 @@
       tr.children[0].textContent = test; tr.children[1].textContent = who.replace("|", " · ");
       tr.children[2].textContent = `${r.used || 0} / ${(r.extra || 0)} дод.`;
       tr.children[3].textContent = (r.attempts || []).map((a) => a.g).join(", ");
-      tr.querySelector("button").onclick = () => { QZ.store.del(k); render(); };
+      tr.querySelector("button").onclick = () => { QZ.store.del(k); renderDevice(); };
       t.appendChild(tr);
     });
     const box = QZ.store.get("qz:outbox", []);
-    $("outbox").textContent = CONFIG.SHEETS_URL ? `У черзі: ${box.length}` : "SHEETS_URL у config.js не вказано — результати не надсилаються.";
+    $("outbox").textContent = CONFIG.SHEETS_URL ? `Не надіслано в таблицю з цього пристрою: ${box.length}` : "SHEETS_URL у config.js не вказано — результати не надсилаються.";
   }
+
+  /* ---------- новий пароль ---------- */
+  $("newPwd").oninput = (e) => { $("hash").textContent = e.target.value ? `TEACHER_HASH: "${QZ.sha256(e.target.value.trim())}",` : ""; };
 })();
 </script>
 </body>

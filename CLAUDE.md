@@ -114,12 +114,14 @@ practice/*.js       практичні; список — practice/index.js
 qr.html             усі QR для друку; qr.html?l=<id> — один на весь екран (проєктор)
 qr/<id>.svg|png     QR-коди → https://musthav6.github.io/informatyka/?l=<id>
 tools/make_qr.py    генератор QR (pip install segno; python3 tools/make_qr.py)
-teacher.html        панель учителя: спроби на пристрої, новий пароль
+teacher.html        кабінет учителя: результати з таблиці (фільтри, плитки, таблиця), код уроку, цей пристрій, новий пароль
 config.js           SITE_URL, SHEETS_URL (Apps Script), TEACHER_HASH, класи, MAX_VIOLATIONS
-apps-script/Code.gs приймач результатів у Google Таблицю
+apps-script/Code.gs приймач результатів у Google Таблицю + видача результатів кабінету за паролем
 ```
 
 **Новий урок:** запис у `lessons.js` → тренажер `tests/<клас>-l<номер>.js` + рядок у `tests/index.js` → (за потреби) `practice/<id>.js` + `practice/index.js` → `python3 tools/make_qr.py` → перевірити в браузері (Playwright, десктоп + мобілка) → коміт і пуш у `main`.
+
+**Кабінет учителя** (`teacher.html`): після входу тягне результати з таблиці через той самий веб-застосунок (`POST {action:"results", pwd}`); пароль перевіряє Apps Script на боці Google. **TEACHER_HASH живе у двох місцях — `config.js` і `Code.gs`; міняєш пароль — міняй обидва** (і нова версія розгортання).
 
 **Код уроку** (з 05.10.2026): тренажери, практичні й діагностувальні відкриваються кодом = слово Дениса + поточна година за Києвом (±1 год). Слово знає лише Денис; у репозиторії тільки його хеш (`LESSON_CODE_HASH` у `config.js`) — **саме слово ніде в репозиторії не писати** (репо публічне). Тренажери/практичні: код один раз на пристрій; діагностувальні: код діє 90 хв. Пароль учителя теж підходить. Логіка — `checkLessonCode` / `needCode` в `assets/engine.js`.
 
