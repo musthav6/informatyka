@@ -23,6 +23,20 @@
   const findPractice = (id) => PRACTICE.list.find((p) => p.id === id);
   const lessonOf = (grade, n) => (window.LESSONS || []).find((l) => l.grade === grade && l.n === n);
 
+  const kindOf = (a) => (a.practice ? "practice" : (findTest(a.test) || {}).kind || "train");
+
+  /* Поле «Код уроку»: показати, перевірити, після успіху — onOpen() */
+  function setupGate(lessonId, onOpen) {
+    const inp = $("gateCode"), btn = $("gateBtn"), msg = $("gateMsg");
+    $("gate").hidden = false;
+    btn.onclick = () => {
+      if (QZ.unlockLesson(lessonId, inp.value)) { $("gate").hidden = true; onOpen(); return; }
+      msg.textContent = "Неправильний код уроку. Запитай учителя."; inp.value = ""; inp.focus();
+    };
+    inp.oninput = () => (msg.textContent = "");
+    inp.onkeydown = (e) => { if (e.key === "Enter") btn.click(); };
+  }
+
   /* Опис однієї дії уроку: посилання, назва, бейдж, підпис */
   function actInfo(a) {
     if (a.practice) {
@@ -103,6 +117,10 @@
     const acts = $("acts"); acts.innerHTML = "";
     l.acts.forEach((a) => { const link = actLink(a); if (link) acts.appendChild(link); });
     $("qrLink").href = `qr.html?l=${l.id}`;
+    if (l.acts.some((a) => QZ.needCode(l.id, kindOf(a)))) {
+      acts.classList.add("dim"); acts.setAttribute("aria-disabled", "true");
+      setupGate(l.id, () => { acts.classList.remove("dim"); acts.removeAttribute("aria-disabled"); });
+    }
   }
 
   /* ================================================================ ПРАКТИЧНА РОБОТА */
@@ -116,6 +134,12 @@
     $("pTitle").textContent = p.title;
     $("pGoal").textContent = p.goal || "";
     $("pSafety").hidden = !p.safety;
+    const lessonId = QZ.lessonIdOf(p.grade, p.lesson);
+    if (QZ.needCode(lessonId, "practice")) setupGate(lessonId, () => showPractice(p));
+    else showPractice(p);
+  }
+
+  function showPractice(p) {
     $("pCard").hidden = false;
 
     const modes = Object.keys(p.modes);

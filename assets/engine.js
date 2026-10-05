@@ -49,6 +49,40 @@
   }
   const checkTeacher = (pwd) => !!pwd && sha256(pwd.trim()) === CFG.TEACHER_HASH;
 
+  /* ---------- код уроку: слово вчителя + година за Києвом (±1) ---------- */
+  const CODE_KINDS = CFG.LESSON_CODE_FOR || ["train", "practice", "diag"];
+  const DIAG_WINDOW_MS = 90 * 60000;
+  const normWord = (s) => String(s || "").toLowerCase().replace(/\s+/g, "");
+  function kyivHour() {
+    try { return +new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Kyiv", hour: "2-digit", hourCycle: "h23" }).format(new Date()) % 24; }
+    catch (e) { return new Date().getHours(); }
+  }
+  function checkLessonCode(input) {
+    if (checkTeacher(input)) return true;
+    const s = normWord(input), h = kyivHour();
+    // Слово може саме закінчуватися цифрою («klas7»), тому пробуємо годину з однієї й з двох останніх цифр.
+    return [1, 2].some((k) => {
+      const tail = s.slice(-k);
+      if (s.length <= k || !/^\d+$/.test(tail)) return false;
+      const n = +tail, diff = Math.min((n - h + 24) % 24, (h - n + 24) % 24);
+      return n < 24 && diff <= 1 && sha256(s.slice(0, -k)) === CFG.LESSON_CODE_HASH;
+    });
+  }
+  const unlockKey = (lessonId) => `qz:unlock:${lessonId}`;
+  /* Чи треба вводити код: тренажери й практичні — доки урок ще не відкривали на цьому пристрої;
+     діагностувальні — якщо від введення коду минуло понад 90 хв. */
+  function needCode(lessonId, kind) {
+    if (!CFG.LESSON_CODE_HASH || !CODE_KINDS.includes(kind)) return false;
+    const ts = store.get(unlockKey(lessonId), 0);
+    return !ts || (kind === "diag" && Date.now() - ts > DIAG_WINDOW_MS);
+  }
+  function unlockLesson(lessonId, input) {
+    if (!checkLessonCode(input)) return false;
+    store.set(unlockKey(lessonId), Date.now());
+    return true;
+  }
+  const lessonIdOf = (grade, lesson) => `${grade}-${String(lesson).padStart(2, "0")}`;
+
   /* ---------- утиліти ---------- */
   const shuffle = (a) => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
   const norm = (s) => String(s).toLowerCase().replace(/[’ʼ`']/g, "'").replace(/ё/g, "е").replace(/\s+/g, " ").replace(/,/g, ".").trim();
@@ -107,16 +141,28 @@
     const sel = $("cls");
     sel.innerHTML = '<option value="">Клас…</option>';
     (CFG.CLASSES || []).filter((c) => c.startsWith(String(T.grade))).forEach((c) => { const o = document.createElement("option"); o.textContent = c; sel.appendChild(o); });
-    const validStart = () => { $("go").disabled = !(sel.value && $("name").value.trim().split(/\s+/).length >= 2); };
+    const LESSON_ID = lessonIdOf(T.grade, T.lesson);
+    const codeInp = $("lcode");
+    const gated = () => !!codeInp && needCode(LESSON_ID, T.kind);
+    const showGate = () => { if (codeInp) { $("codeWrap").hidden = !gated(); $("codeMsg").textContent = ""; } };
+    const validStart = () => { $("go").disabled = !(sel.value && $("name").value.trim().split(/\s+/).length >= 2 && (!gated() || codeInp.value.trim())); };
     sel.onchange = validStart; $("name").oninput = validStart;
-    $("name").onkeydown = (e) => { if (e.key === "Enter" && !$("go").disabled) start(); };
+    [$("name"), codeInp].forEach((inp) => { if (inp) inp.onkeydown = (e) => { if (e.key === "Enter" && !$("go").disabled) start(); }; });
+    if (codeInp) codeInp.oninput = () => { $("codeMsg").textContent = ""; validStart(); };
     $("go").onclick = start;
+    showGate();
 
     function rec(cls, name) { return store.get(recKey(cls, name), { used: 0, extra: 0, attempts: [], lastVars: null }); }
     function saveRec(cls, name, r) { store.set(recKey(cls, name), r); }
     const allowed = (r) => ATT + (r.extra || 0);
 
     function start() {
+      if (gated() && !unlockLesson(LESSON_ID, codeInp.value)) {
+        $("codeMsg").textContent = "Неправильний код уроку. Запитай учителя.";
+        codeInp.value = ""; validStart(); codeInp.focus();
+        return;
+      }
+      showGate();
       const cls = sel.value, name = $("name").value.trim().replace(/\s+/g, " ");
       const r = rec(cls, name);
       if (r.used >= allowed(r)) { showBlocked(cls, name); return; }
@@ -345,7 +391,9 @@
     $("bback").onclick = toStart;
     function toStart() {
       ["quiz", "result", "blocked", "warn"].forEach((id) => ($(id).hidden = true));
-      $("start").hidden = false; $("name").value = ""; sel.value = ""; validStart();
+      $("start").hidden = false; $("name").value = ""; sel.value = "";
+      if (codeInp) codeInp.value = "";
+      showGate(); validStart();
     }
 
     /* Відновлення після перезавантаження сторінки */
@@ -356,5 +404,5 @@
 
   /* ================================================================ РЕЄСТР ТЕСТІВ */
   window.TESTS = window.TESTS || { list: [], add(t) { this.list.push(t); } };
-  window.QZ = { runTest, sha256, checkTeacher, store, flush, grade12, parseVariant };
+  window.QZ = { runTest, sha256, checkTeacher, store, flush, grade12, parseVariant, kyivHour, checkLessonCode, needCode, unlockLesson, lessonIdOf, normWord };
 })();

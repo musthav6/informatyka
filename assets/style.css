@@ -138,3 +138,10 @@ table.crit tr.sum td{font-weight:700;border-bottom:0}
   .qgrid{grid-template-columns:repeat(3,1fr)}
   .qcard{border-color:#999}
 }
+/* ---------- код уроку ---------- */
+.gate{display:flex;flex-direction:column;gap:10px;border:1.5px dashed var(--accent);border-radius:12px;padding:14px;background:var(--accent-soft)}
+section.card.gate{border-style:dashed}
+.gate .unlock{max-width:none}
+.errmsg{margin:0;color:var(--fail);font-weight:600}
+.errmsg:empty{display:none}
+.dim{opacity:.4;pointer-events:none;filter:grayscale(1)}

@@ -17,6 +17,12 @@
     <h1 id="pTitle">Завантаження…</h1>
   </header>
 
+  <section class="card gate" id="gate" hidden>
+    <p style="margin:0">Щоб почати практичну роботу, введи код уроку — його скаже вчитель.</p>
+    <div class="unlock"><input type="text" id="gateCode" placeholder="Код уроку" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="gateBtn">Відкрити</button></div>
+    <p class="small errmsg" id="gateMsg" role="alert"></p>
+  </section>
+
   <section class="card" id="pCard" hidden>
     <p id="pGoal" style="margin:0"></p>
     <p class="info" id="pSafety" style="margin:0">Перед роботою — інструктаж з безпеки життєдіяльності: сиди рівно, не торкайся кабелів і задньої панелі, не їж біля комп'ютера, про будь-яку несправність одразу повідом учителя.</p>

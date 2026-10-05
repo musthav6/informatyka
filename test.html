@@ -24,6 +24,8 @@
       <label class="fld">Клас<select id="cls"></select></label>
       <label class="fld">Прізвище та ім'я<input type="text" id="name" autocomplete="off" placeholder="Коваленко Софія"></label>
     </div>
+    <label class="fld" id="codeWrap" hidden>Код уроку (скаже вчитель)<input type="text" id="lcode" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Код уроку"></label>
+    <p class="small errmsg" id="codeMsg" role="alert"></p>
     <button class="btn" id="go" disabled>Почати</button>
     <p class="info" style="margin:0">Кожен учень отримує власний набір завдань, порядок запитань і відповідей перемішується. Повернутися до попереднього запитання не можна. Якщо перейти в іншу вкладку, згорнути вікно, перезавантажити сторінку чи зробити знімок екрана — поточне запитання згорає.</p>
   </section>

@@ -33,6 +33,15 @@
     <button class="btn ghost" id="resend">Надіслати ще раз</button>
   </section>
 
+  <section class="card" id="codeCard" hidden>
+    <h2>Код уроку</h2>
+    <p style="margin:0">Код = твоє слово + поточна година за Києвом. Зараз <b id="nowHour"></b> → код <b>«слово<span id="nowHourN"></span>»</b>. Підходить і година до та після (±1), а також твій пароль учителя.</p>
+    <p class="small muted" style="margin:0">Тренажери й практичні після введення коду лишаються відкритими на пристрої учня; діагностувальні знову просять код через 90 хв.</p>
+    <label class="fld">Нове слово для коду<input type="text" id="newWord" placeholder="Наприклад, zorya" autocomplete="off"></label>
+    <code id="wordHash"></code>
+    <p class="small muted" style="margin:0">Скопіюй рядок у <code>config.js</code> замість старого <code>LESSON_CODE_HASH</code> і закоміть.</p>
+  </section>
+
   <section class="card">
     <h2>Новий пароль</h2>
     <p class="small muted" style="margin:0">Введи новий пароль — нижче з'явиться рядок, який треба вставити в <code>config.js</code> замість старого <code>TEACHER_HASH</code>, і закомітити.</p>
@@ -46,7 +55,9 @@
 (function () {
   const $ = (id) => document.getElementById(id);
   $("newPwd").oninput = (e) => { $("hash").textContent = e.target.value ? `TEACHER_HASH: "${QZ.sha256(e.target.value.trim())}",` : ""; };
-  $("enter").onclick = () => { if (QZ.checkTeacher($("pwd").value)) { $("login").hidden = true; $("panel").hidden = false; render(); } else $("lmsg").textContent = "Неправильний пароль."; };
+  $("newWord").oninput = (e) => { const w = QZ.normWord(e.target.value); $("wordHash").textContent = w ? `LESSON_CODE_HASH: "${QZ.sha256(w)}",` : ""; };
+  const showHour = () => { const h = QZ.kyivHour(); $("nowHour").textContent = `${h}:xx`; $("nowHourN").textContent = h; };
+  $("enter").onclick = () => { if (QZ.checkTeacher($("pwd").value)) { $("login").hidden = true; $("panel").hidden = false; $("codeCard").hidden = false; showHour(); setInterval(showHour, 30000); render(); } else $("lmsg").textContent = "Неправильний пароль."; };
   $("pwd").onkeydown = (e) => { if (e.key === "Enter") $("enter").click(); };
   $("resend").onclick = () => { QZ.flush(); setTimeout(render, 1500); };
   function render() {
