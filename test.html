@@ -6,8 +6,8 @@
 <title>Тест</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css?v=202610052245">
 </head>
 <body>
 <div class="wrap">
@@ -70,17 +70,18 @@
   </section>
 </div>
 
-<script src="config.js"></script>
-<script src="assets/engine.js"></script>
-<script src="assets/eggs.js"></script>
-<script src="tests/index.js"></script>
+<script src="config.js?v=202610052245"></script>
+<script src="assets/engine.js?v=202610052245"></script>
+<script src="assets/eggs.js?v=202610052245"></script>
+<script src="tests/index.js?v=202610052245"></script>
 <script>
 (function () {
   const id = new URLSearchParams(location.search).get("t");
   const file = (window.TEST_FILES || []).find((f) => f.replace(/\.js$/, "") === id);
   if (!file) { document.getElementById("title").textContent = "Тест не знайдено"; document.getElementById("start").hidden = true; return; }
   const s = document.createElement("script");
-  s.src = "tests/" + file;
+  const v = (document.querySelector('script[src*="engine.js"]').src.match(/[?&]v=(\w+)/) || [])[1];
+  s.src = "tests/" + file + (v ? "?v=" + v : "");
   s.onload = () => {
     const T = TESTS.list.find((t) => t.id === id);
     document.getElementById("tBack").href = `index.html?l=${T.grade}-${String(T.lesson).padStart(2, "0")}`;

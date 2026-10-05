@@ -114,13 +114,14 @@ practice/*.js       практичні; список — practice/index.js
 qr.html             усі QR для друку; qr.html?l=<id> — один на весь екран (проєктор)
 qr/<id>.svg|png     QR-коди → https://musthav6.github.io/informatyka/?l=<id>; qr/home.* — головна (qr.html?l=home)
 tools/make_qr.py    генератор QR (pip install segno; python3 tools/make_qr.py)
+tools/bump_version.py оновлює ?v= у посиланнях на CSS/JS — запускати перед кожним пушем змін сайту
 assets/eggs.js      пасхалки: бонус-питання, 12 → конфеті, 6/7 → «шість… сім», Бомбардіро Крокоділо
 teacher.html        кабінет учителя: результати з таблиці (фільтри, плитки, таблиця), код уроку, цей пристрій, новий пароль
 config.js           SITE_URL, SHEETS_URL (Apps Script), TEACHER_HASH, класи, MAX_VIOLATIONS
 apps-script/Code.gs приймач результатів у Google Таблицю + видача результатів кабінету за паролем
 ```
 
-**Новий урок:** запис у `lessons.js` → тренажер `tests/<клас>-l<номер>.js` + рядок у `tests/index.js` → (за потреби) `practice/<id>.js` + `practice/index.js` → `python3 tools/make_qr.py` → перевірити в браузері (Playwright, десктоп + мобілка) → коміт і пуш у `main`.
+**Новий урок:** запис у `lessons.js` → тренажер `tests/<клас>-l<номер>.js` + рядок у `tests/index.js` → (за потреби) `practice/<id>.js` + `practice/index.js` → `python3 tools/make_qr.py` → перевірити в браузері (Playwright, десктоп + мобілка) → `python3 tools/bump_version.py` (мітка `?v=` у посиланнях на CSS/JS, інакше браузери до 10 хв показують старе) → коміт і пуш у `main`.
 
 **Кабінет учителя** (`teacher.html`): після входу тягне результати з таблиці через той самий веб-застосунок (`POST {action:"results", pwd}`); пароль перевіряє Apps Script на боці Google. **TEACHER_HASH живе у двох місцях — `config.js` і `Code.gs`; міняєш пароль — міняй обидва** (і нова версія розгортання).
 

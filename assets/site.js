@@ -13,9 +13,12 @@
 
   window.PRACTICE = window.PRACTICE || { list: [], add(p) { this.list.push(p); } };
 
+  // Мітка версії з власного <script src="assets/site.js?v=…"> — щоб і підвантажені тести бралися свіжі
+  const V = (() => { try { return new URL(document.currentScript.src).searchParams.get("v") || ""; } catch (e) { return ""; } })();
+  const withV = (src) => (V ? `${src}?v=${V}` : src);
   function loadAll(dir, files) {
     return Promise.all((files || []).map((f) => new Promise((ok) => {
-      const s = document.createElement("script"); s.src = dir + f; s.onload = s.onerror = ok; document.body.appendChild(s);
+      const s = document.createElement("script"); s.src = withV(dir + f); s.onload = s.onerror = ok; document.body.appendChild(s);
     })));
   }
   const ready = () => Promise.all([loadAll("tests/", window.TEST_FILES), loadAll("practice/", window.PRACTICE_FILES)]);
