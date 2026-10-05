@@ -87,7 +87,7 @@
   const shuffle = (a) => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
   const norm = (s) => String(s).toLowerCase().replace(/[’ʼ`']/g, "'").replace(/ё/g, "е").replace(/\s+/g, " ").replace(/,/g, ".").trim();
   const normName = (s) => norm(s).replace(/[^a-zа-щьюяїієґ' ]/gi, "");
-  const deviceId = (() => { let d = store.get("qz:device"); if (!d) { d = Math.random().toString(36).slice(2, 10); store.set("qz:device", d); } return d; })();
+  store.del("qz:device"); // раніше тут зберігався випадковий код пристрою — більше не використовуємо
   const fmt = (t) => { const d = new Date(t); return d.toLocaleDateString("uk-UA") + " " + d.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }); };
   const grade12 = (score, total) => Math.max(1, Math.round((score / total) * 12));
 
@@ -322,8 +322,7 @@
       queueResult({
         ts: new Date().toISOString(), testId: T.id, test: T.title, kind: T.kind, cls: st.cls, name: st.name,
         attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : ""].filter(Boolean).join("; "),
-        wrong: st.results.filter((x) => !x.ok).map((x) => `${x.sl + 1}${x.a === null ? "(пропуск)" : ""}`).join(", "),
-        device: deviceId, ua: navigator.userAgent.slice(0, 120)
+        wrong: st.results.filter((x) => !x.ok).map((x) => `${x.sl + 1}${x.a === null ? "(пропуск)" : ""}`).join(", ")
       });
       const who = { cls: st.cls, name: st.name };
       st = null; store.del(KEY_ACTIVE);
@@ -368,7 +367,7 @@
       $("again").hidden = left <= 0; $("again").onclick = () => newAttempt(cls, name);
       setupUnlock("unlockR", cls, name, left <= 0);
       $("nextStudent").hidden = false;
-      if (window.EGGS && EGGS.onResult) EGGS.onResult(last.g, box, T);
+      if (window.EGGS && EGGS.onResult) EGGS.onResult(last.g, box, T, name);
     }
 
     function showBlocked(cls, name) {

@@ -69,9 +69,9 @@
   }
 
   /* Підсумок тесту: 12 — конфеті; 6 або 7 — сам знаєш що; 1–3 — підбадьорення.
-     Серія тренажерів на цьому пристрої: 3, 5, 10, 20 — похвала. */
+     Серія тренажерів кожного учня (за іменем): 3, 5, 10, 20 — похвала. Лічильник живе лише в браузері учня. */
   const STREAK = { 3: "Три тренажери пройдено — так тримати! 💪", 5: "П'ять тренажерів! Ти справжній марафонець 🏃", 10: "Десять тренажерів! Бомбардіро Крокоділо аплодує 🐊👏", 20: "Двадцять тренажерів! Легенда кабінету інформатики 🏆" };
-  function onResult(g, box, T) {
+  function onResult(g, box, T, name) {
     if (box) box.querySelectorAll(".egg-line").forEach((x) => x.remove());
     let line = "";
     if (g === 12) { line = "Ідеально! 🎉"; confetti(); }
@@ -82,7 +82,8 @@
       box.insertBefore(p, box.querySelector(".report"));
     }
     if (T && T.kind === "train") {
-      const n = store.get("egg:trainers", 0) + 1; store.set("egg:trainers", n);
+      const key = "egg:trainers:" + String(name || "").toLowerCase().replace(/\s+/g, " ").trim();
+      const n = store.get(key, 0) + 1; store.set(key, n);
       if (STREAK[n]) setTimeout(() => toast(STREAK[n]), 900);
     }
   }

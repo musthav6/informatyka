@@ -3,6 +3,7 @@
  *  - Сайт надсилає результат спроби → рядок в аркуші тесту (назва = id тесту) і в «Усі результати».
  *  - Сторінка вчителя (teacher.html) просить результати з паролем → скрипт перевіряє пароль тут,
  *    на боці Google, і лише тоді віддає дані.
+ * Дані пишуться й читаються за НАЗВАМИ колонок (рядок 1), тож колонки можна переставляти чи додавати.
  *
  * Розгортання: Розгорнути → Керувати розгортаннями → олівець → Version: New version → Deploy.
  * «Хто має доступ» — обов'язково «Anyone» (інакше сайт отримує 403 і результати губляться).
@@ -13,8 +14,13 @@
 const TEACHER_HASH = "f7852b73682f784157fd404d0cb342a9ebe374fdd61caeaa455e65b5cf79a93a";
 
 const ALL = "Усі результати";
-const HEADERS = ["Час", "Клас", "Учень", "Тест", "Спроба", "Правильних", "З", "Оцінка (12)",
-                 "Виходів із вкладки", "Тривалість, хв", "Неправильні №", "Примітка", "Пристрій", "ID тесту"];
+// Колонка → поле у відповіді кабінету вчителя
+const COLS = [
+  ["Час", "t"], ["Клас", "cls"], ["Учень", "name"], ["Тест", "test"], ["Спроба", "att"],
+  ["Правильних", "score"], ["З", "total"], ["Оцінка (12)", "g"], ["Виходів із вкладки", "viol"],
+  ["Тривалість, хв", "min"], ["Неправильні №", "wrong"], ["Примітка", "note"], ["ID тесту", "id"]
+];
+const HEADERS = COLS.map((c) => c[0]);
 
 function doPost(e) {
   const d = JSON.parse(e.postData.contents);
@@ -23,10 +29,14 @@ function doPost(e) {
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
   try {
-    const row = [new Date(d.ts), d.cls, d.name, d.test, d.attempt, d.score, d.total, d.grade12,
-                 d.violations, Math.round((d.durationSec || 0) / 6) / 10, d.wrong, d.note, d.device, d.testId];
-    append_(String(d.testId || "Інше").slice(0, 90), row);
-    append_(ALL, row);
+    const rec = {
+      "Час": new Date(d.ts), "Клас": d.cls, "Учень": d.name, "Тест": d.test, "Спроба": d.attempt,
+      "Правильних": d.score, "З": d.total, "Оцінка (12)": d.grade12, "Виходів із вкладки": d.violations,
+      "Тривалість, хв": Math.round((d.durationSec || 0) / 6) / 10, "Неправильні №": d.wrong,
+      "Примітка": d.note, "ID тесту": d.testId
+    };
+    append_(String(d.testId || "Інше").slice(0, 90), rec);
+    append_(ALL, rec);
     return ContentService.createTextOutput("ok");
   } finally {
     lock.releaseLock();
@@ -41,15 +51,20 @@ function doGet() {
 function results_(d) {
   if (sha256_(String(d.pwd || "").trim()) !== TEACHER_HASH) return json_({ ok: false, error: "password" });
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ALL);
-  const values = sh && sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS.length).getValues() : [];
-  const rows = values.map((r) => ({
-    t: r[0] && typeof r[0].getTime === "function" ? new Date(r[0].getTime()).toISOString() : String(r[0]), cls: r[1], name: r[2], test: r[3], att: r[4],
-    score: r[5], total: r[6], g: r[7], viol: r[8], min: r[9], wrong: r[10], note: r[11], dev: r[12], id: r[13]
-  }));
+  if (!sh || sh.getLastRow() < 2) return json_({ ok: true, rows: [] });
+  const data = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  const head = data[0].map(String);
+  const rows = data.slice(1).map((r) => {
+    const o = {};
+    COLS.forEach(([h, k]) => { const i = head.indexOf(h); o[k] = i < 0 ? "" : r[i]; });
+    o.t = o.t && typeof o.t.getTime === "function" ? new Date(o.t.getTime()).toISOString() : String(o.t);
+    return o;
+  });
   return json_({ ok: true, rows: rows });
 }
 
-function append_(name, row) {
+/* Дописати запис в аркуш, розклавши значення за назвами колонок цього аркуша */
+function append_(name, rec) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
   let sh = ss.getSheetByName(name);
   if (!sh) {
@@ -58,7 +73,8 @@ function append_(name, row) {
     sh.getRange(1, 1, 1, HEADERS.length).setFontWeight("bold").setBackground("#E8E8E8");
     sh.setFrozenRows(1);
   }
-  sh.appendRow(row);
+  const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
+  sh.appendRow(head.map((h) => (h in rec ? rec[h] : "")));
 }
 
 function sha256_(s) {

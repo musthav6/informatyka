@@ -44,7 +44,6 @@
     <p class="small muted" id="resStatus" style="margin:0" aria-live="polite"></p>
 
     <div class="tiles" id="tiles"></div>
-    <div id="alerts"></div>
 
     <div class="tablewrap"><table class="t res" id="resTable"></table></div>
     <p class="small muted" style="margin:0">У підсумку рахується остання спроба кожного учня з кожного тесту; у таблиці — усі спроби. Повні дані — у <a id="sheetLink" class="link" target="_blank" rel="noopener">Google Таблиці</a>.</p>
@@ -204,18 +203,6 @@
     LEVELS.forEach((lv) => tile(lv.label, String(L.filter((x) => lv.test(+x.g)).length), lv.range + " балів", "lv-" + lv.key));
     tile("Виходили з вкладки", String(L.filter((x) => +x.viol > 0).length), "учнів", L.some((x) => +x.viol > 0) ? "lv-warn" : "");
 
-    // підозри: один пристрій — кілька імен на тому самому тесті
-    const alerts = $("alerts"); alerts.innerHTML = "";
-    const byDev = new Map();
-    L.forEach((x) => { if (!x.dev) return; const k = `${testKey(x)}|${x.dev}`; if (!byDev.has(k)) byDev.set(k, { test: x.test, names: new Set() }); byDev.get(k).names.add(`${x.name} (${x.cls})`); });
-    const sus = [...byDev.values()].filter((v) => v.names.size > 1);
-    if (sus.length) {
-      const box = el("div", "info");
-      box.appendChild(el("b", "", "Один пристрій — кілька учнів. "));
-      box.appendChild(document.createTextNode("На шкільних ПК це нормально, на телефонах — варто глянути:"));
-      const ul = el("ul"); sus.forEach((v) => ul.appendChild(el("li", "", `${v.test}: ${[...v.names].join(", ")}`)));
-      box.appendChild(ul); alerts.appendChild(box);
-    }
 
     const tb = $("resTable"); tb.innerHTML = "";
     const head = el("tr");
