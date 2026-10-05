@@ -93,13 +93,15 @@
 
   /* Варіант завдання → уніфікований вигляд */
   function parseVariant(v) {
+    // інтерактивні завдання (assets/tasks.js): розклади по групах, порядок, клавіші, схема, симулятори
+    if (v && v.type && window.TASKS && TASKS[v.type]) { const p = TASKS[v.type].parse(v); p.task = TASKS[v.type]; return p; }
     if (Array.isArray(v)) return { type: "single", q: v[0], ok: [v[1][0]], opts: v[1], x: v[2] || "" };
     if (v.input) return { type: "input", q: v.q, accept: v.input, x: v.x || "", hint: v.hint || "" };
     if (v.ok && v.no) return { type: "multi", q: v.q, ok: v.ok, opts: v.ok.concat(v.no), x: v.x || "" };
     if ("tf" in v) return { type: "single", q: v.q, ok: [v.tf ? "Так" : "Ні"], opts: v.tf ? ["Так", "Ні"] : ["Ні", "Так"], x: v.x || "", fixed: true };
     throw new Error("Невідомий формат завдання");
   }
-  const correctText = (p) => p.type === "input" ? p.accept[0] : p.ok.join("; ");
+  const correctText = (p) => p.task ? p.task.correctText(p) : p.type === "input" ? p.accept[0] : p.ok.join("; ");
 
   /* ---------- відправлення в Google Таблицю ---------- */
   function queueResult(row) {
@@ -220,6 +222,13 @@
       $("qhint").hidden = true;
       if ($("qbonus")) $("qbonus").hidden = !isBonus(cur().sl);
       const box = $("opts"); box.innerHTML = ""; box.classList.remove("locked");
+      box.classList.toggle("tasks", !!p.task);
+      if (p.task) {
+        if (p.hint) { $("qhint").textContent = p.hint; $("qhint").hidden = false; }
+        picked = p.task.render(box, p, (ready) => { if (!st.checked) $("next").disabled = !ready; });
+        $("next").textContent = p.task.button || "Відповісти";
+        return;
+      }
       if (p.type === "input") {
         $("qhint").textContent = p.hint || "Введи відповідь з клавіатури."; $("qhint").hidden = false;
         const inp = document.createElement("input"); inp.type = "text"; inp.autocomplete = "off"; inp.id = "ans";
@@ -250,13 +259,15 @@
 
     function judge(p, ans) {
       if (ans === null || ans === undefined) return false;
+      if (p.task) return !!p.task.judge(p, ans.get());
       if (p.type === "input") return p.accept.some((a) => norm(a).replace(/ /g, "") === norm(ans).replace(/ /g, ""));
       if (p.type === "multi") return ans.size === p.ok.length && p.ok.every((o) => ans.has(o));
       return p.ok.includes(ans);
     }
     function record(ok, ans, burnt) {
       const { sl } = cur();
-      st.results.push({ sl, v: st.vars[sl], ok, a: burnt ? null : ans instanceof Set ? [...ans].join("; ") : ans, b: isBonus(sl) ? st.bonus.q : undefined });
+      const a = burnt ? null : ans && typeof ans.text === "function" ? ans.text() : ans instanceof Set ? [...ans].join("; ") : ans;
+      st.results.push({ sl, v: st.vars[sl], ok, a, b: isBonus(sl) ? st.bonus.q : undefined });
       st.checked = true; store.set(KEY_ACTIVE, st);
     }
     function advance() {
@@ -275,6 +286,7 @@
       // миттєвий відгук
       const box = $("opts"); box.classList.add("locked");
       box.querySelectorAll("input").forEach((i) => (i.disabled = true));
+      if (p.task) p.task.reveal(box, p, picked);
       [...box.querySelectorAll(".opt")].forEach((l) => { if (p.ok && p.ok.includes(l.dataset.v)) l.classList.add("right"); else if (l.classList.contains("sel")) l.classList.add("wrong"); });
       const fb = $("fb"); fb.className = "fb " + (ok ? "ok" : "no"); fb.innerHTML = "<b></b><p></p>";
       fb.firstChild.textContent = ok ? "Правильно!" : "Неправильно. Правильна відповідь: " + correctText(p);
@@ -288,7 +300,7 @@
       lock = true; setTimeout(() => (lock = false), 1200);
       st.viol++;
       let msg = reason;
-      if (!st.checked) { record(false, null, true); msg += " Поточне запитання згоріло й зараховане як неправильне."; }
+      if (!st.checked) { if (picked && typeof picked.stop === "function") picked.stop(); record(false, null, true); msg += " Поточне запитання згоріло й зараховане як неправильне."; }
       store.set(KEY_ACTIVE, st);
       const max = CFG.MAX_VIOLATIONS || 0;
       if (max && st.viol >= max) { finishAttempt(`Тест завершено: ${st.viol} виходи з вкладки.`); return; }

@@ -7,7 +7,7 @@ window.CONFIG = {
   SHEETS_URL: "https://script.google.com/macros/s/AKfycbxftaG3c06yORiGb5FiO9F41gOwTfcZkRsEBadRWKntDQRBcxjgj6Z2EMR6kW1YpgAWFg/exec",
 
   // SHA-256 від пароля вчителя. Новий хеш генерується на сторінці teacher.html.
-  // Зараз стоїть хеш пароля «Inform2026» — ОБОВ'ЯЗКОВО заміни.
+  // Сам пароль ніде в репозиторії не писати (сайт і репозиторій публічні).
   TEACHER_HASH: "f7852b73682f784157fd404d0cb342a9ebe374fdd61caeaa455e65b5cf79a93a",
 
   // Код уроку = слово вчителя + поточна година за Києвом: о 9:20 — «слово9», о 14:05 — «слово14».

@@ -40,6 +40,8 @@
     inp.onkeydown = (e) => { if (e.key === "Enter") btn.click(); };
   }
 
+  // 1–4, 21–24… → «запитання», решта → «запитань»
+  const fewForm = (n) => n % 10 >= 1 && n % 10 <= 4 && !(n % 100 >= 11 && n % 100 <= 14);
   /* Опис однієї дії уроку: посилання, назва, бейдж, підпис */
   function actInfo(a) {
     if (a.practice) {
@@ -49,11 +51,11 @@
     }
     const t = findTest(a.test);
     if (!t) return null;
-    const diag = t.kind === "diag", tema = t.id.includes("tema");
+    const diag = t.kind === "diag", tema = t.id.includes("tema"), sim = !!t.sim;
     return {
-      href: `test.html?t=${encodeURIComponent(t.id)}`, title: t.title, badge: diag ? (tema ? "Тематичне" : "Діагностувальна") : "Тренажер",
-      cls: diag ? "diag" : "", icon: diag ? (tema ? "🏁" : "🎯") : "🧠",
-      meta: `${t.slots.length} запитань${t.minutes ? " · " + t.minutes + " хв" : ""} · спроб: ${t.attempts || 1}`
+      href: `test.html?t=${encodeURIComponent(t.id)}`, title: t.title, badge: diag ? (tema ? "Тематичне" : "Діагностувальна") : sim ? "Симулятор" : "Тренажер",
+      cls: diag ? "diag" : sim ? "sim" : "", icon: diag ? (tema ? "🏁" : "🎯") : sim ? "🕹️" : "🧠",
+      meta: `${t.slots.length} ${(sim ? "завдан" : "запитан") + (fewForm(t.slots.length) ? "ня" : "ь")}${t.minutes ? " · " + t.minutes + " хв" : ""} · спроб: ${t.attempts || 1}`
     };
   }
 
