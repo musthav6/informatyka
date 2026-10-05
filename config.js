@@ -4,7 +4,7 @@ window.CONFIG = {
   SITE_URL: "https://musthav6.github.io/informatyka/",
 
   // URL веб-застосунку Google Apps Script (див. apps-script/README). Порожньо — результати лише локально.
-  SHEETS_URL: "",
+  SHEETS_URL: "https://script.google.com/macros/s/AKfycbxftaG3c06yORiGb5FiO9F41gOwTfcZkRsEBadRWKntDQRBcxjgj6Z2EMR6kW1YpgAWFg/exec",
 
   // SHA-256 від пароля вчителя. Новий хеш генерується на сторінці teacher.html.
   // Зараз стоїть хеш пароля «Inform2026» — ОБОВ'ЯЗКОВО заміни.
