@@ -107,7 +107,7 @@
       const text = await r.text();
       let d; try { d = JSON.parse(text); } catch (e) { throw new Error("old-script"); }
       if (!d.ok) throw new Error(d.error === "password" ? "pwd" : "server");
-      ROWS = d.rows.map((x) => ({ ...x, at: new Date(x.t) })).filter((x) => !isNaN(x.at));
+      ROWS = d.rows.map((x) => ({ ...x, at: parseAt(x.t) })).filter((x) => !isNaN(x.at));
       fillFilters(); draw();
       $("resStatus").textContent = `Оновлено о ${new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })} · усього записів: ${ROWS.length}`;
     } catch (e) {
@@ -119,6 +119,15 @@
   }
   $("reload").onclick = loadResults;
 
+  /* Час із таблиці: ISO або «Tue Oct 06 2026 00:57:47 GMT+0300 (…)» зі старої версії скрипта */
+  function parseAt(t) {
+    const d = new Date(t);
+    if (!isNaN(d)) return d;
+    const m = String(t).match(/(\w{3}) (\d{1,2}) (\d{4}) (\d{2}):(\d{2}):(\d{2}) GMT([+-]\d{2})(\d{2})/);
+    if (!m) return d;
+    const mon = "JanFebMarAprMayJunJulAugSepOctNovDec".indexOf(m[1]) / 3 + 1;
+    return new Date(`${m[3]}-${String(mon).padStart(2, "0")}-${m[2].padStart(2, "0")}T${m[4]}:${m[5]}:${m[6]}${m[7]}:${m[8]}`);
+  }
   const kyivDay = (d) => d.toLocaleDateString("uk-UA", { timeZone: "Europe/Kyiv" });
   const fmtAt = (d) => d.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const testKey = (x) => x.id || x.test;

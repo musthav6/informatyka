@@ -43,7 +43,7 @@ function results_(d) {
   const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(ALL);
   const values = sh && sh.getLastRow() > 1 ? sh.getRange(2, 1, sh.getLastRow() - 1, HEADERS.length).getValues() : [];
   const rows = values.map((r) => ({
-    t: r[0] instanceof Date ? r[0].toISOString() : String(r[0]), cls: r[1], name: r[2], test: r[3], att: r[4],
+    t: r[0] && typeof r[0].getTime === "function" ? new Date(r[0].getTime()).toISOString() : String(r[0]), cls: r[1], name: r[2], test: r[3], att: r[4],
     score: r[5], total: r[6], g: r[7], viol: r[8], min: r[9], wrong: r[10], note: r[11], dev: r[12], id: r[13]
   }));
   return json_({ ok: true, rows: rows });
