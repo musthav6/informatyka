@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Практична робота</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <a href="index.html" id="pBack" class="link">← До уроку</a>
+    <div class="eyebrow" id="pEyebrow" style="margin-top:12px"></div>
+    <h1 id="pTitle">Завантаження…</h1>
+  </header>
+
+  <section class="card" id="pCard" hidden>
+    <p id="pGoal" style="margin:0"></p>
+    <p class="info" id="pSafety" style="margin:0">Перед роботою — інструктаж з безпеки життєдіяльності: сиди рівно, не торкайся кабелів і задньої панелі, не їж біля комп'ютера, про будь-яку несправність одразу повідом учителя.</p>
+    <div class="tabs" id="pTabs"></div>
+    <p class="hint" id="pNote" hidden style="margin:0"></p>
+    <ol class="steps" id="pSteps"></ol>
+    <p class="prog" id="pProg"></p>
+  </section>
+
+  <section class="card" id="pCritWrap" hidden>
+    <h2 style="margin:0">Як оцінюємо</h2>
+    <table class="t crit"><tbody id="pCrit"></tbody></table>
+  </section>
+
+  <section class="card" id="pCheckWrap" hidden>
+    <h2 style="margin:0">Перевір себе</h2>
+    <div class="list" id="pCheck"></div>
+  </section>
+</div>
+<script src="config.js"></script>
+<script src="assets/engine.js"></script>
+<script src="lessons.js"></script>
+<script src="tests/index.js"></script>
+<script src="practice/index.js"></script>
+<script src="assets/site.js"></script>
+<script>SITE.ready().then(SITE.renderPractice);</script>
+</body>
+</html>

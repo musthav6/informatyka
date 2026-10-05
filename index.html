@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Інформатика · уроки й тренажери</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+  <!-- Перелік уроків -->
+  <div id="listView" hidden>
+    <header>
+      <div class="eyebrow">Інформатика · Вінницький ліцей №2</div>
+      <h1>Уроки, тренажери й практичні</h1>
+    </header>
+    <div class="tabs" id="tabs"></div>
+    <div class="list" id="list"></div>
+    <p class="small muted">Відкрий свій урок: спершу коротка теорія, далі практична робота чи тренажер. Тренажер — для самоперевірки, його можна пройти двічі. Діагностувальна й тематична — оцінювані: одна спроба, перемикатися на інші вкладки не можна.</p>
+    <p class="small"><a href="qr.html" class="link">QR-коди уроків</a> · <a href="teacher.html" class="link">Для вчителя</a></p>
+  </div>
+
+  <!-- Сторінка одного уроку -->
+  <div id="lessonView" hidden>
+    <header>
+      <a href="index.html" id="back" class="link">← Усі уроки</a>
+      <div class="eyebrow" id="lEyebrow" style="margin-top:12px"></div>
+      <h1 id="lTitle"></h1>
+      <p class="small muted" id="lBook" style="margin:6px 0 0"></p>
+    </header>
+    <section class="card">
+      <h2 style="margin:0">Теорія коротко</h2>
+      <div class="defs" id="defs"></div>
+      <div id="keyWrap">
+        <p class="small muted" style="margin:0 0 4px;font-weight:600">Запам'ятай</p>
+        <ul class="key" id="key"></ul>
+      </div>
+    </section>
+    <section class="card">
+      <h2 style="margin:0">Практика</h2>
+      <div class="list" id="acts"></div>
+    </section>
+    <p class="small"><a href="qr.html" id="qrLink" class="link">QR-код цього уроку для проєктора</a></p>
+  </div>
+</div>
+<script src="config.js"></script>
+<script src="assets/engine.js"></script>
+<script src="lessons.js"></script>
+<script src="tests/index.js"></script>
+<script src="practice/index.js"></script>
+<script src="assets/site.js"></script>
+<script>SITE.ready().then(SITE.renderIndex);</script>
+</body>
+</html>
