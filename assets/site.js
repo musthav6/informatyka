@@ -122,6 +122,13 @@
       d.appendChild(el("b", "", term)); d.appendChild(document.createTextNode(" — " + text));
       defs.appendChild(d);
     });
+    // повний конспект: notes/<клас>.js генерує tools/make_notes.py з Google Docs (без відповідей)
+    loadAll("notes/", [`${l.grade}.js`]).then(() => {
+      const html = window.NOTES && NOTES[l.id];
+      if (!html) return;
+      $("notes").innerHTML = html;
+      $("notesWrap").hidden = false;
+    });
     const key = $("key"); key.innerHTML = "";
     (l.key || []).forEach((k) => key.appendChild(el("li", "", k)));
     $("keyWrap").hidden = !(l.key && l.key.length);
