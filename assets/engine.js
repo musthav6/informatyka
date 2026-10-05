@@ -368,7 +368,7 @@
       $("again").hidden = left <= 0; $("again").onclick = () => newAttempt(cls, name);
       setupUnlock("unlockR", cls, name, left <= 0);
       $("nextStudent").hidden = false;
-      if (window.EGGS && EGGS.onResult) EGGS.onResult(last.g, box);
+      if (window.EGGS && EGGS.onResult) EGGS.onResult(last.g, box, T);
     }
 
     function showBlocked(cls, name) {

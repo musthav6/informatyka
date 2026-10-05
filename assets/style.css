@@ -191,3 +191,6 @@ table.res tr.grp td{background:var(--accent-soft);color:var(--fg);font-size:14px
 .egg-confetti i{position:absolute;top:-12px;width:8px;height:14px;border-radius:2px;animation:eggfall linear forwards}
 @keyframes eggfall{to{top:105vh;transform:rotate(540deg)}}
 .qcard.qhome{border-color:#1f6fd1;border-width:2px}
+.egg-snow{position:fixed;inset:0;pointer-events:none;z-index:47;overflow:hidden}
+.egg-snow i{position:absolute;top:-24px;color:#9ecbff;font-style:normal;opacity:.85;animation:eggsnow linear forwards}
+@keyframes eggsnow{to{top:105vh;transform:translateX(30px) rotate(180deg)}}
