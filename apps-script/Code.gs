@@ -30,10 +30,10 @@ function doPost(e) {
   lock.waitLock(20000);
   try {
     const rec = {
-      "Час": new Date(d.ts), "Клас": d.cls, "Учень": d.name, "Тест": d.test, "Спроба": d.attempt,
-      "Правильних": d.score, "З": d.total, "Оцінка (12)": d.grade12, "Виходів із вкладки": d.violations,
-      "Тривалість, хв": Math.round((d.durationSec || 0) / 6) / 10, "Неправильні №": d.wrong,
-      "Примітка": d.note, "ID тесту": d.testId
+      "Час": new Date(d.ts), "Клас": txt_(d.cls), "Учень": txt_(d.name), "Тест": txt_(d.test), "Спроба": num_(d.attempt),
+      "Правильних": num_(d.score), "З": num_(d.total), "Оцінка (12)": num_(d.grade12), "Виходів із вкладки": num_(d.violations),
+      "Тривалість, хв": Math.round((num_(d.durationSec) || 0) / 6) / 10, "Неправильні №": txt_(d.wrong),
+      "Примітка": txt_(d.note), "ID тесту": txt_(d.testId)
     };
     append_(String(d.testId || "Інше").slice(0, 90), rec);
     append_(ALL, rec);
@@ -75,6 +75,16 @@ function append_(name, rec) {
   }
   const head = sh.getRange(1, 1, 1, Math.max(sh.getLastColumn(), 1)).getValues()[0].map(String);
   sh.appendRow(head.map((h) => (h in rec ? rec[h] : "")));
+}
+
+/* Текст — завжди як текст: апостроф на початку не дає таблиці перетворити «2, 5, 9» на дату
+   чи виконати «=формулу» з імені учня. У клітинці апостроф не видно. */
+function txt_(v) {
+  return v === undefined || v === null || v === "" ? "" : "'" + String(v).slice(0, 300);
+}
+function num_(v) {
+  const n = Number(v);
+  return isFinite(n) ? n : "";
 }
 
 function sha256_(s) {
