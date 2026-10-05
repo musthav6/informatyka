@@ -12,43 +12,48 @@
 <body>
 <div class="wrap">
   <!-- Перелік уроків -->
-  <div id="listView" hidden>
-    <header>
-      <div class="eyebrow">Інформатика · Вінницький ліцей №2</div>
-      <h1>Уроки, тренажери й практичні</h1>
+  <div id="listView" class="stack" hidden>
+    <header class="hero">
+      <span class="hero-emoji" aria-hidden="true">💻</span>
+      <div class="eyebrow">Вінницький ліцей №2</div>
+      <h1>Інформатика</h1>
+      <p>Уроки, тренажери й практичні — обери свій клас.</p>
+      <div class="tabs" id="tabs" role="tablist" aria-label="Клас"></div>
     </header>
-    <div class="tabs" id="tabs"></div>
     <div class="list" id="list"></div>
-    <p class="small muted">Відкрий свій урок: спершу коротка теорія, далі практична робота чи тренажер. Тренажер — для самоперевірки, його можна пройти двічі. Діагностувальна й тематична — оцінювані: одна спроба, перемикатися на інші вкладки не можна.</p>
-    <p class="small"><a href="qr.html" class="link">QR-коди уроків</a> · <a href="teacher.html" class="link">Для вчителя</a></p>
+    <p class="small muted" style="margin:0">Відкрий свій урок: спершу коротка теорія, далі практична робота чи тренажер. Тренажер — для самоперевірки, його можна пройти двічі. Діагностувальна й тематична — оцінювані: одна спроба, перемикатися на інші вкладки не можна.</p>
+    <p class="small" style="margin:0"><a href="qr.html" class="link">QR-коди уроків</a> · <a href="teacher.html" class="link">Для вчителя</a></p>
   </div>
 
   <!-- Сторінка одного уроку -->
-  <div id="lessonView" hidden>
-    <header>
-      <a href="index.html" id="back" class="link">← Усі уроки</a>
-      <div class="eyebrow" id="lEyebrow" style="margin-top:12px"></div>
-      <h1 id="lTitle"></h1>
-      <p class="small muted" id="lBook" style="margin:6px 0 0"></p>
+  <div id="lessonView" class="stack" hidden>
+    <a href="index.html" id="back" class="link">← Усі уроки</a>
+    <header class="hero hero-lesson">
+      <span class="hero-no" id="lNo" aria-hidden="true"></span>
+      <div class="hero-text">
+        <div class="eyebrow" id="lEyebrow"></div>
+        <h1 id="lTitle"></h1>
+        <p class="small" id="lBook"></p>
+      </div>
     </header>
     <section class="card">
-      <h2 style="margin:0">Теорія коротко</h2>
+      <h2 class="sec-title"><span class="sec-ico" aria-hidden="true">📘</span>Теорія коротко</h2>
       <div class="defs" id="defs"></div>
       <div id="keyWrap">
-        <p class="small muted" style="margin:0 0 4px;font-weight:600">Запам'ятай</p>
+        <p class="keyhead">Запам'ятай</p>
         <ul class="key" id="key"></ul>
       </div>
     </section>
     <section class="card">
-      <h2 style="margin:0">Практика</h2>
+      <h2 class="sec-title"><span class="sec-ico" aria-hidden="true">🚀</span>Практика</h2>
       <div class="gate" id="gate" hidden>
-        <p style="margin:0">Щоб почати, введи код уроку — його скаже вчитель.</p>
+        <p style="margin:0">🔒 Щоб почати, введи код уроку — його скаже вчитель.</p>
         <div class="unlock"><input type="text" id="gateCode" placeholder="Код уроку" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="gateBtn">Відкрити</button></div>
         <p class="small errmsg" id="gateMsg" role="alert"></p>
       </div>
       <div class="list" id="acts"></div>
     </section>
-    <p class="small"><a href="qr.html" id="qrLink" class="link">QR-код цього уроку для проєктора</a></p>
+    <p class="small" style="margin:0"><a href="qr.html" id="qrLink" class="link">QR-код цього уроку для проєктора</a></p>
   </div>
 </div>
 <script src="config.js"></script>

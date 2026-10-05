@@ -42,14 +42,15 @@
     if (a.practice) {
       const p = findPractice(a.practice);
       if (!p) return null;
-      return { href: `practice.html?p=${encodeURIComponent(p.id)}`, title: p.title, badge: "Практична", cls: "prac", meta: "Покроково · комп'ютер або телефон" };
+      return { href: `practice.html?p=${encodeURIComponent(p.id)}`, title: p.title, badge: "Практична", cls: "prac", icon: "🛠️", meta: "Покроково · комп'ютер або телефон" };
     }
     const t = findTest(a.test);
     if (!t) return null;
-    const diag = t.kind === "diag";
+    const diag = t.kind === "diag", tema = t.id.includes("tema");
     return {
-      href: `test.html?t=${encodeURIComponent(t.id)}`, title: t.title, badge: diag ? (t.id.includes("tema") ? "Тематичне" : "Діагностувальна") : "Тренажер",
-      cls: diag ? "diag" : "", meta: `${t.slots.length} запитань${t.minutes ? " · " + t.minutes + " хв" : ""} · спроб: ${t.attempts || 1}`
+      href: `test.html?t=${encodeURIComponent(t.id)}`, title: t.title, badge: diag ? (tema ? "Тематичне" : "Діагностувальна") : "Тренажер",
+      cls: diag ? "diag" : "", icon: diag ? (tema ? "🏁" : "🎯") : "🧠",
+      meta: `${t.slots.length} запитань${t.minutes ? " · " + t.minutes + " хв" : ""} · спроб: ${t.attempts || 1}`
     };
   }
 
@@ -57,11 +58,13 @@
     const info = actInfo(a);
     if (!info) return null;
     const link = el("a", "titem"); link.href = info.href;
-    const left = el("span");
-    left.appendChild(el("span", "t", info.title)); left.appendChild(el("br"));
-    left.appendChild(el("span", "small muted", info.meta));
-    const b = el("span", "badge " + info.cls, info.badge);
-    link.append(left, b);
+    const ico = el("span", "ticon " + info.cls, info.icon); ico.setAttribute("aria-hidden", "true");
+    const body = el("span", "tbody");
+    body.append(el("span", "t", info.title), el("span", "small muted", info.meta));
+    const side = el("span", "tside");
+    side.append(el("span", "badge " + info.cls, info.badge), el("span", "arrow", "→"));
+    side.lastChild.setAttribute("aria-hidden", "true");
+    link.append(ico, body, side);
     return link;
   }
 
@@ -77,18 +80,21 @@
     const draw = () => {
       const tabs = $("tabs"); tabs.innerHTML = "";
       grades.forEach((g) => {
-        const b = el("button", g === grade ? "on" : "", g + " клас");
+        const b = el("button", g === grade ? "on" : "", g + " клас"); b.setAttribute("role", "tab"); b.setAttribute("aria-selected", String(g === grade));
         b.onclick = () => { grade = g; store.set("site:grade", g); draw(); };
         tabs.appendChild(b);
       });
       const list = $("list"); list.innerHTML = "";
       LESSONS.filter((l) => String(l.grade) === grade).forEach((l) => {
         const card = el("a", "lcard"); card.href = `?l=${l.id}`;
-        card.appendChild(el("span", "lnum", `Урок ${l.n}${l.alt ? " · " + l.alt : ""}`));
-        card.appendChild(el("span", "t", l.title));
+        const no = el("span", "lno", String(l.n)); no.setAttribute("aria-hidden", "true");
+        const body = el("span", "lbody");
+        body.appendChild(el("span", "lnum", `Урок ${l.n}${l.alt ? " · " + l.alt : ""}`));
+        body.appendChild(el("span", "t", l.title));
         const chips = el("span", "chips");
-        l.acts.forEach((a) => { const i = actInfo(a); if (i) chips.appendChild(el("span", "badge " + i.cls, i.badge)); });
-        card.appendChild(chips);
+        l.acts.forEach((a) => { const i = actInfo(a); if (i) chips.appendChild(el("span", "badge " + i.cls, `${i.icon} ${i.badge}`)); });
+        body.appendChild(chips);
+        card.append(no, body);
         list.appendChild(card);
       });
     };
@@ -100,7 +106,8 @@
     document.title = `Урок ${l.n}. ${l.title}`;
     $("lessonView").hidden = false;
     $("back").href = `?g=${l.grade}`;
-    $("lEyebrow").textContent = `Інформатика · ${l.grade} клас · Урок ${l.n}${l.alt ? " (" + l.alt + ")" : ""}`;
+    $("lEyebrow").textContent = `Інформатика · ${l.grade} клас${l.alt ? " · " + l.alt : ""}`;
+    $("lNo").textContent = l.n;
     $("lTitle").textContent = l.title;
     $("lBook").textContent = l.book ? `Підручник: ${l.book}` : "";
 

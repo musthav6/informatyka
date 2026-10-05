@@ -337,6 +337,7 @@
       box.className = "card verdict " + (last.g >= 7 ? "pass" : "fail");
       $("rwho").textContent = `${name}, ${cls}`;
       $("rbig").textContent = `${last.g} / 12`;
+      $("rbig").style.setProperty("--p", String(last.g / 12));
       $("rstamp").textContent = last.reason || (left > 0 ? `Залишилось спроб: ${left}` : "Тест завершено");
       const rep = $("report"); rep.innerHTML = "";
       r.attempts.forEach((a) => {
