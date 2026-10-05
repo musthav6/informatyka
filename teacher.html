@@ -38,7 +38,8 @@
         <option value="7">7 днів</option>
         <option value="30">30 днів</option>
         <option value="all">Увесь час</option>
-      </select></label>
+        <option value="date">Конкретна дата…</option>
+      </select><input type="date" id="fDate" hidden aria-label="Дата"></label>
     </div>
     <p class="small muted" id="resStatus" style="margin:0" aria-live="polite"></p>
 
@@ -128,7 +129,7 @@
     const mon = "JanFebMarAprMayJunJulAugSepOctNovDec".indexOf(m[1]) / 3 + 1;
     return new Date(`${m[3]}-${String(mon).padStart(2, "0")}-${m[2].padStart(2, "0")}T${m[4]}:${m[5]}:${m[6]}${m[7]}:${m[8]}`);
   }
-  const kyivDay = (d) => d.toLocaleDateString("uk-UA", { timeZone: "Europe/Kyiv" });
+  const kyivDay = (d) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" }); // «2026-10-06», як у <input type=date>
   const fmtAt = (d) => d.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
   const testKey = (x) => x.id || x.test;
   const LEVELS = [
@@ -140,7 +141,7 @@
   const levelOf = (g) => LEVELS.find((l) => l.test(+g)) || LEVELS[3];
 
   function fillFilters() {
-    const keepCls = $("fCls").value, keepTest = $("fTest").value;
+    const keepCls = VIEW.cls, keepTest = VIEW.test;
     const cls = [...new Set([...(CONFIG.CLASSES || []), ...ROWS.map((x) => x.cls)])].filter(Boolean);
     $("fCls").innerHTML = ""; $("fCls").append(new Option("Усі класи", ""));
     cls.forEach((c) => $("fCls").append(new Option(c, c)));
@@ -151,17 +152,45 @@
     $("fCls").value = cls.includes(keepCls) ? keepCls : "";
     $("fTest").value = tests.has(keepTest) ? keepTest : "";
   }
-  ["fCls", "fTest", "fPer"].forEach((id) => ($(id).onchange = draw));
+  /* ---------- вигляд: фільтри й сортування (пам'ятаються на цьому пристрої) ---------- */
+  const VIEW = Object.assign({ cls: "", test: "", per: "today", date: "", sort: "cls", dir: 1 }, QZ.store.get("tch:view", {}));
+  const saveView = () => QZ.store.set("tch:view", VIEW);
+  $("fPer").value = VIEW.per; $("fDate").value = VIEW.date || kyivDay(new Date()); $("fDate").hidden = VIEW.per !== "date";
+  $("fCls").onchange = () => { VIEW.cls = $("fCls").value; saveView(); draw(); };
+  $("fTest").onchange = () => { VIEW.test = $("fTest").value; saveView(); draw(); };
+  $("fPer").onchange = () => { VIEW.per = $("fPer").value; $("fDate").hidden = VIEW.per !== "date"; saveView(); draw(); };
+  $("fDate").onchange = () => { VIEW.date = $("fDate").value; saveView(); draw(); };
+
+  const nat = (a, b) => String(a ?? "").localeCompare(String(b ?? ""), "uk", { numeric: true, sensitivity: "base" });
+  const COLS = [
+    { h: "Учень", k: "name", cmp: (a, b) => nat(a.name, b.name) },
+    { h: "Клас", k: "cls", cmp: (a, b) => nat(a.cls, b.cls) },
+    { h: "Оцінка", k: "g", cmp: (a, b) => (+a.g || 0) - (+b.g || 0), desc: true },
+    { h: "Тест", k: "test", cmp: (a, b) => nat(testKey(a), testKey(b)) },
+    { h: "Бали", k: "score", cmp: (a, b) => (a.score / a.total || 0) - (b.score / b.total || 0), desc: true },
+    { h: "Виходи", k: "viol", cmp: (a, b) => (+a.viol || 0) - (+b.viol || 0), desc: true },
+    { h: "Спр.", k: "att", cmp: (a, b) => (+a.att || 0) - (+b.att || 0) },
+    { h: "Хв", k: "min", cmp: (a, b) => (+a.min || 0) - (+b.min || 0) },
+    { h: "Коли", k: "at", cmp: (a, b) => a.at - b.at, desc: true }
+  ];
+  const colOf = (k) => COLS.find((c) => c.k === k) || COLS[1];
+  // Основне сортування — вибрана колонка; далі завжди: новіші зверху, потім за прізвищем.
+  const sorter = () => { const c = colOf(VIEW.sort); return (a, b) => VIEW.dir * c.cmp(a, b) || b.at - a.at || nat(a.name, b.name); };
+  function sortBy(k) {
+    if (VIEW.sort === k) VIEW.dir = -VIEW.dir; else { VIEW.sort = k; VIEW.dir = colOf(k).desc ? -1 : 1; }
+    saveView(); draw();
+  }
 
   function filtered() {
-    const c = $("fCls").value, t = $("fTest").value, per = $("fPer").value, now = Date.now(), today = kyivDay(new Date());
+    const c = $("fCls").value, t = $("fTest").value, per = $("fPer").value, now = Date.now();
+    const day = per === "today" ? kyivDay(new Date()) : per === "date" ? $("fDate").value : null;
     return ROWS.filter((x) =>
       (!c || x.cls === c) && (!t || testKey(x) === t) &&
-      (per === "all" || (per === "today" ? kyivDay(x.at) === today : now - x.at <= +per * 864e5)));
+      (per === "all" || (day !== null ? kyivDay(x.at) === day : now - x.at <= +per * 864e5)));
   }
 
   function draw() {
-    const rows = filtered().sort((a, b) => String(a.cls).localeCompare(String(b.cls), "uk") || String(a.name).localeCompare(String(b.name), "uk") || a.at - b.at);
+    const rows = filtered().sort(sorter());
     // остання спроба кожного учня з кожного тесту
     const last = new Map();
     rows.forEach((x) => { const k = `${testKey(x)}|${x.cls}|${String(x.name).toLowerCase()}`; const p = last.get(k); if (!p || x.at > p.at) last.set(k, x); });
@@ -189,11 +218,29 @@
     }
 
     const tb = $("resTable"); tb.innerHTML = "";
-    const head = el("tr"); ["Учень", "Клас", "Оцінка", "Тест", "Бали", "Виходи", "Спр.", "Хв", "Коли"].forEach((h) => head.appendChild(el("th", "", h)));
+    const head = el("tr");
+    COLS.forEach((c) => {
+      const th = el("th"); const on = VIEW.sort === c.k;
+      th.setAttribute("aria-sort", on ? (VIEW.dir > 0 ? "ascending" : "descending") : "none");
+      const b = el("button", "sortbtn" + (on ? " on" : ""), c.h + (on ? (VIEW.dir > 0 ? " ▲" : " ▼") : ""));
+      b.type = "button"; b.title = "Сортувати"; b.onclick = () => sortBy(c.k);
+      th.appendChild(b); head.appendChild(th);
+    });
     const thead = el("thead"); thead.appendChild(head); tb.appendChild(thead);
     const body = el("tbody");
     if (!rows.length) { const tr = el("tr"); const td = el("td", "muted", "За цими фільтрами записів немає."); td.colSpan = 9; tr.appendChild(td); body.appendChild(tr); }
+    // Сортування за класом — рядки згруповано, у заголовку групи підсумок класу
+    const groups = VIEW.sort === "cls";
+    let curCls = null;
     rows.forEach((x) => {
+      if (groups && x.cls !== curCls) {
+        curCls = x.cls;
+        const inCls = rows.filter((r) => r.cls === curCls);
+        const avgG = (inCls.reduce((s, r) => s + (+r.g || 0), 0) / inCls.length).toFixed(1).replace(".", ",");
+        const gr = el("tr", "grp"); const td = el("td"); td.colSpan = 9;
+        td.append(el("b", "", curCls || "Без класу"), document.createTextNode(` · записів: ${inCls.length} · середня ${avgG}`));
+        gr.appendChild(td); body.appendChild(gr);
+      }
       const tr = el("tr");
       const lv = levelOf(x.g);
       const gcell = el("td", "g lv-" + lv.key); gcell.append(el("b", "", String(x.g)), el("span", "small muted", " " + lv.label.toLowerCase()));
