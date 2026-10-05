@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Тести з інформатики</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Інформатика · Вінницький ліцей №2</div>
+    <h1>Тести й тренажери</h1>
+  </header>
+  <div class="tabs" id="tabs"></div>
+  <div class="list" id="list"></div>
+  <p class="small muted">Тренажер — для самоперевірки після уроку. Діагностувальна робота — оцінювана, спроб обмаль, перемикатися на інші вкладки не можна.</p>
+  <a href="teacher.html" class="link small">Для вчителя</a>
+</div>
+<script src="config.js"></script>
+<script src="assets/engine.js"></script>
+<script src="tests/index.js"></script>
+<script>
+(function () {
+  const files = window.TEST_FILES || [];
+  let loaded = 0, grade = null;
+  try { grade = localStorage.getItem("qz:grade"); } catch (e) {}
+  files.forEach((f) => { const s = document.createElement("script"); s.src = "tests/" + f; s.onload = s.onerror = () => { if (++loaded === files.length) render(); }; document.body.appendChild(s); });
+  function render() {
+    const tests = TESTS.list.slice().sort((a, b) => a.grade - b.grade || a.lesson - b.lesson || (a.kind === "diag") - (b.kind === "diag"));
+    const grades = [...new Set(tests.map((t) => String(t.grade)))];
+    if (!grades.includes(grade)) grade = grades[0];
+    const tabs = document.getElementById("tabs"); tabs.innerHTML = "";
+    grades.forEach((g) => { const b = document.createElement("button"); b.textContent = g + " клас"; b.className = g === grade ? "on" : ""; b.onclick = () => { grade = g; try { localStorage.setItem("qz:grade", g); } catch (e) {} render(); }; tabs.appendChild(b); });
+    const list = document.getElementById("list"); list.innerHTML = "";
+    tests.filter((t) => String(t.grade) === grade).forEach((t) => {
+      const a = document.createElement("a"); a.className = "titem"; a.href = "test.html?t=" + encodeURIComponent(t.id);
+      a.innerHTML = '<span><span class="t"></span><br><span class="small muted"></span></span><span class="badge"></span>';
+      a.querySelector(".t").textContent = t.title;
+      a.querySelector(".small").textContent = `Урок ${t.lesson} · ${t.slots.length} запитань${t.minutes ? " · " + t.minutes + " хв" : ""} · спроб: ${t.attempts || 1}`;
+      const b = a.querySelector(".badge"); b.textContent = t.kind === "diag" ? "Діагностувальна" : "Тренажер"; if (t.kind === "diag") b.classList.add("diag");
+      list.appendChild(a);
+    });
+  }
+})();
+</script>
+</body>
+</html>
