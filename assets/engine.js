@@ -179,6 +179,12 @@
       st = { cls, name, no: r.used + 1, order: shuffle([...Array(N).keys()]), vars, i: 0, results: [], viol: 0, startedAt: Date.now(),
              deadline: T.minutes ? Date.now() + T.minutes * 60000 : 0, checked: false };
       r.used += 1; r.lastVars = vars; saveRec(cls, name, r);   // спроба рахується з моменту старту
+      // Пасхалка: з імовірністю EGG_CHANCE на кожне питання одне з них замінюється легким бонусним (assets/eggs.js)
+      const pool = (window.EGGS && EGGS.bonus) || [];
+      const chance = CFG.EGG_CHANCE === undefined ? 0.01 : CFG.EGG_CHANCE;
+      if (pool.length && (CFG.EGG_KINDS || ["train"]).includes(T.kind)) {
+        for (let s = 0; s < N; s++) if (Math.random() < chance) { st.bonus = { slot: s, q: Math.floor(Math.random() * pool.length) }; break; }
+      }
       store.set(KEY_ACTIVE, st);
       openQuiz();
     }
@@ -198,7 +204,9 @@
       $("timer").classList.toggle("low", left < 60000);
       if (left <= 0) { clearInterval(tick); finishAttempt("Час вичерпано."); }
     }
-    const cur = () => { const sl = st.order[st.i]; return { sl, p: parseVariant(T.slots[sl][st.vars[sl]]) }; };
+    const bonusQ = (b) => parseVariant(window.EGGS.bonus[b]);
+    const isBonus = (sl) => !!(st && st.bonus && st.bonus.slot === sl && window.EGGS);
+    const cur = () => { const sl = st.order[st.i]; return { sl, p: isBonus(sl) ? bonusQ(st.bonus.q) : parseVariant(T.slots[sl][st.vars[sl]]) }; };
 
     function show() {
       if (st.checked) { advance(); return; }
@@ -210,6 +218,7 @@
       $("qnum").textContent = `${ATT > 1 || st.no > 1 ? `Спроба ${st.no} · ` : ""}Запитання ${st.i + 1} з ${N}`;
       $("qtext").textContent = p.q;
       $("qhint").hidden = true;
+      if ($("qbonus")) $("qbonus").hidden = !isBonus(cur().sl);
       const box = $("opts"); box.innerHTML = ""; box.classList.remove("locked");
       if (p.type === "input") {
         $("qhint").textContent = p.hint || "Введи відповідь з клавіатури."; $("qhint").hidden = false;
@@ -247,7 +256,7 @@
     }
     function record(ok, ans, burnt) {
       const { sl } = cur();
-      st.results.push({ sl, v: st.vars[sl], ok, a: burnt ? null : ans instanceof Set ? [...ans].join("; ") : ans });
+      st.results.push({ sl, v: st.vars[sl], ok, a: burnt ? null : ans instanceof Set ? [...ans].join("; ") : ans, b: isBonus(sl) ? st.bonus.q : undefined });
       st.checked = true; store.set(KEY_ACTIVE, st);
     }
     function advance() {
@@ -304,7 +313,7 @@
       // незавершені запитання — неправильні
       while (st.results.length < N) {
         const sl = st.order[st.results.length];
-        st.results.push({ sl, v: st.vars[sl], ok: false, a: null });
+        st.results.push({ sl, v: st.vars[sl], ok: false, a: null, b: isBonus(sl) ? st.bonus.q : undefined });
       }
       const score = st.results.filter((r) => r.ok).length;
       const r = rec(st.cls, st.name);
@@ -312,7 +321,7 @@
       r.attempts.push(att); saveRec(st.cls, st.name, r);
       queueResult({
         ts: new Date().toISOString(), testId: T.id, test: T.title, kind: T.kind, cls: st.cls, name: st.name,
-        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: att.reason,
+        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : ""].filter(Boolean).join("; "),
         wrong: st.results.filter((x) => !x.ok).map((x) => `${x.sl + 1}${x.a === null ? "(пропуск)" : ""}`).join(", "),
         device: deviceId, ua: navigator.userAgent.slice(0, 120)
       });
@@ -344,7 +353,7 @@
           const det = document.createElement("details"); det.className = "review";
           det.innerHTML = "<summary>Помилки й правильні відповіді</summary>";
           wrong.forEach((w) => {
-            const p = parseVariant(T.slots[w.sl][w.v]);
+            const p = w.b !== undefined && window.EGGS ? bonusQ(w.b) : parseVariant(T.slots[w.sl][w.v]);
             const it = document.createElement("div"); it.className = "rv";
             it.innerHTML = '<p></p><p class="ra bad"></p><p class="ra good"></p><p class="muted small"></p>';
             it.children[0].textContent = p.q;
@@ -359,6 +368,7 @@
       $("again").hidden = left <= 0; $("again").onclick = () => newAttempt(cls, name);
       setupUnlock("unlockR", cls, name, left <= 0);
       $("nextStudent").hidden = false;
+      if (window.EGGS && EGGS.onResult) EGGS.onResult(last.g, box);
     }
 
     function showBlocked(cls, name) {

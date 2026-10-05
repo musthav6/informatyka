@@ -193,6 +193,16 @@
 
   /* ================================================================ QR-КОДИ */
   function renderQR() {
+    if (params.get("l") === "home") {
+      document.body.classList.add("projector");
+      $("qrOne").hidden = false;
+      $("qoTitle").textContent = "Інформатика · Вінницький ліцей №2";
+      $("qoSub").textContent = "Уроки, тренажери й тести";
+      $("qoImg").src = "qr/home.svg";
+      $("qoUrl").textContent = SITE.replace(/^https:\/\//, "");
+      $("qoBack").href = "index.html";
+      return;
+    }
     const one = (window.LESSONS || []).find((l) => l.id === params.get("l"));
     if (one) {
       document.body.classList.add("projector");
@@ -206,6 +216,10 @@
     }
     $("qrAll").hidden = false;
     const box = $("qrGrid"); box.innerHTML = "";
+    const home = el("a", "qcard qhome"); home.href = "?l=home";
+    const himg = el("img"); himg.src = "qr/home.svg"; himg.alt = "QR-код головної сторінки";
+    home.append(himg, el("b", "", "Головна сторінка"), el("span", "small", "Усі уроки, тренажери й тести"), el("code", "", SITE.replace(/^https:\/\//, "")));
+    box.appendChild(home);
     LESSONS.forEach((l) => {
       const c = el("a", "qcard"); c.href = `?l=${l.id}`;
       const img = el("img"); img.src = `qr/${l.id}.svg`; img.alt = `QR-код уроку ${l.id}`; img.loading = "lazy";

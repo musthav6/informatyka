@@ -18,4 +18,8 @@ for lid in ids:
     qr = segno.make(f"{site}?l={lid}", error="m")
     qr.save(out / f"{lid}.svg", scale=10, border=2, dark="#17232e", xmldecl=False, omitsize=True)  # viewBox замість width/height, щоб масштабувався
     qr.save(out / f"{lid}.png", scale=10, border=2, dark="#17232e")
-print(f"{len(ids)} QR-кодів у {out.relative_to(ROOT)}/ → {site}?l=…")
+# Головна сторінка (перелік уроків) — qr/home.*
+home = segno.make(site, error="m")
+home.save(out / "home.svg", scale=10, border=2, dark="#17232e", xmldecl=False, omitsize=True)
+home.save(out / "home.png", scale=16, border=2, dark="#17232e")
+print(f"{len(ids)} QR-кодів уроків + головна у {out.relative_to(ROOT)}/ → {site}")
