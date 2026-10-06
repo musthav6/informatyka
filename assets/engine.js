@@ -191,9 +191,20 @@
       openQuiz();
     }
 
+    // Водяний знак з іменем, класом і часом поверх завдань: скрін чи фото екрана видає, чиї це завдання
+    function setWatermark() {
+      const d = new Date(st.startedAt), p2 = (n) => String(n).padStart(2, "0");
+      const text = `${st.name} · ${st.cls} · ${p2(d.getDate())}.${p2(d.getMonth() + 1)} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
+      const esc = text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
+      const fg = getComputedStyle(document.body).color;
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="170"><text x="210" y="90" text-anchor="middle" transform="rotate(-20 210 85)" font-family="sans-serif" font-size="15" font-weight="600" fill="${fg}" fill-opacity="0.1">${esc}</text></svg>`;
+      $("quiz").style.setProperty("--wm", `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
+    }
+
     function openQuiz() {
       ["start", "result", "blocked"].forEach((id) => ($(id).hidden = true));
       $("quiz").hidden = false;
+      setWatermark();
       $("rail").innerHTML = "<i></i>".repeat(N);
       clearInterval(tick);
       if (st.deadline) { tick = setInterval(updTimer, 1000); updTimer(); } else $("timer").textContent = "";
@@ -311,7 +322,18 @@
     }
     document.addEventListener("visibilitychange", () => { if (document.hidden) violation("Ти виходив із тесту."); });
     window.addEventListener("blur", () => violation("Ти виходив із тесту."));
-    document.addEventListener("keyup", (e) => { if (e.key === "PrintScreen") violation("Зроблено знімок екрана."); });
+    // поки сторінка без фокусу (ножиці Win + Shift + S, перемикач застосунків), завдання розмите
+    const veil = (on) => document.body.classList.toggle("veiled", on && !$("quiz").hidden);
+    window.addEventListener("blur", () => veil(true));
+    document.addEventListener("visibilitychange", () => veil(document.hidden));
+    window.addEventListener("focus", () => veil(false));
+    document.addEventListener("pointerdown", () => veil(false));
+    document.addEventListener("keyup", (e) => {
+      if (e.key !== "PrintScreen") return;
+      // знімок уже в буфері — підміняємо його текстом (якщо браузер дозволить)
+      if (!$("quiz").hidden) try { navigator.clipboard.writeText("Знімок екрана під час тесту заборонено.").catch(() => {}); } catch (err) { /* без буфера */ }
+      violation("Зроблено знімок екрана.");
+    });
     document.addEventListener("keydown", (e) => {
       const k = (e.key || "").toLowerCase();
       if (e.metaKey && e.shiftKey && ["3", "4", "5", "s"].includes(k)) violation("Зроблено знімок екрана.");
