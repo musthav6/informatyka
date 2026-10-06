@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=202610061545">
+<link rel="stylesheet" href="assets/style.css?v=202610061606">
 </head>
 <body>
 <div class="wrap wide">
@@ -52,6 +52,7 @@
     <div class="tiles" id="tiles"></div>
 
     <div class="tablewrap"><table class="t res" id="resTable"></table></div>
+    <div id="moreWrap" hidden><button class="btn ghost" id="moreBtn" type="button"></button></div>
     <p class="small muted" style="margin:0" id="pickNote"></p>
     <details class="flaglegend">
       <summary class="small"><b>Що означають позначки</b></summary>
@@ -93,14 +94,16 @@
     <code id="hash"></code>
   </details>
 </div>
-<script src="config.js?v=202610061545"></script>
-<script src="assets/engine.js?v=202610061545"></script>
+<script src="config.js?v=202610061606"></script>
+<script src="assets/engine.js?v=202610061606"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
   const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text !== undefined) e.textContent = text; return e; };
   const SHEET_ID = "1Fb-ir2MPd2_udBCns4VyMUwDokwH0tDVy9QiKzHYvlc";
   let PWD = "", ROWS = [];
+  const RECENT_DAYS = 40;      // скільки днів тягнути з таблиці одразу (фільтри «Сьогодні / 7 / 30 днів»)
+  let loadedSince = null;      // з якої дати завантажено записи; 0 — усі
 
   /* ---------- вхід ---------- */
   $("enter").onclick = () => {
@@ -116,11 +119,20 @@
   $("pwd").onkeydown = (e) => { if (e.key === "Enter") $("enter").click(); };
 
   /* ---------- результати з таблиці ---------- */
+  // потрібна дата початку для поточного фільтра періоду: «Увесь час» чи давня дата — тягнемо все
+  const neededSince = () => {
+    const per = $("fPer").value;
+    if (per === "all") return 0;
+    if (per === "date") { const d = new Date($("fDate").value + "T00:00:00"); return isNaN(d) ? 0 : d.getTime() - 864e5; }
+    return Date.now() - RECENT_DAYS * 864e5;
+  };
+  const needMore = () => loadedSince !== null && loadedSince > 0 && neededSince() < loadedSince;
   async function loadResults() {
     if (!CONFIG.SHEETS_URL) { $("resStatus").textContent = "SHEETS_URL у config.js не вказано."; return; }
+    const since = Math.min(neededSince(), Date.now() - RECENT_DAYS * 864e5);
     $("resStatus").textContent = "Завантажую з таблиці…"; $("reload").disabled = true;
     try {
-      const r = await fetch(CONFIG.SHEETS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "results", pwd: PWD }) });
+      const r = await fetch(CONFIG.SHEETS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "results", pwd: PWD, since: since ? new Date(since).toISOString() : "" }) });
       const text = await r.text();
       let d; try { d = JSON.parse(text); } catch (e) { throw new Error("old-script"); }
       if (!d.ok) throw new Error(d.error === "password" ? "pwd" : "server");
@@ -129,9 +141,13 @@
         const k = [x.t, x.cls, x.name, testKey(x), x.att, x.score, x.g].join("|");   // той самий результат, надісланий двічі
         if (seen.has(k)) return false; seen.add(k); return true;
       });
+      ROWS.forEach((x) => (x.day = kyivDay(x.at)));   // день за Києвом — один раз, бо toLocaleDateString повільний
+      // стара версія Code.gs не знає «since» і віддає все — тоді так і запам'ятовуємо
+      loadedSince = d.since ? since : 0;
       flagRows(ROWS);
       fillFilters(); draw();
-      $("resStatus").textContent = `Оновлено о ${new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })} · усього записів: ${ROWS.length}`;
+      $("resStatus").textContent = `Оновлено о ${new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })} · записів: ${ROWS.length}` +
+        (loadedSince ? ` (за останні ${RECENT_DAYS} днів; «Увесь час» підвантажить решту)` : "");
     } catch (e) {
       $("resStatus").textContent =
         e.message === "old-script" ? "Скрипт у таблиці ще стара версія: встав новий Code.gs і розгорни «New version»." :
@@ -150,8 +166,11 @@
     const mon = "JanFebMarAprMayJunJulAugSepOctNovDec".indexOf(m[1]) / 3 + 1;
     return new Date(`${m[3]}-${String(mon).padStart(2, "0")}-${m[2].padStart(2, "0")}T${m[4]}:${m[5]}:${m[6]}${m[7]}:${m[8]}`);
   }
-  const kyivDay = (d) => d.toLocaleDateString("sv-SE", { timeZone: "Europe/Kyiv" }); // «2026-10-06», як у <input type=date>
-  const fmtAt = (d) => d.toLocaleString("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  // форматери створюємо один раз: toLocaleString щоразу будує новий, і на 20 тисячах записів це секунди
+  const DAY_FMT = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Kyiv" });
+  const AT_FMT = new Intl.DateTimeFormat("uk-UA", { timeZone: "Europe/Kyiv", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });
+  const kyivDay = (d) => DAY_FMT.format(d); // «2026-10-06», як у <input type=date>
+  const fmtAt = (d) => AT_FMT.format(d);
   const testKey = (x) => x.id || x.test;
   const LEVELS = [
     { key: "hi", label: "Високий", range: "10–12", test: (g) => g >= 10 },
@@ -181,7 +200,7 @@
       const names = [...new Set(list.map((x) => x.name))];
       list.forEach((x) => {
         const me = pkey(x.name);
-        const twin = names.find((n) => n !== x.name && (pkey(n) === me || (me.length >= 8 && lev(pkey(n), me) <= 2)));
+        const twin = names.find((n) => { if (n === x.name) return false; const k = pkey(n); return k === me || (me.length >= 8 && Math.abs(k.length - me.length) <= 2 && lev(k, me) <= 2); });
         if (twin) add(x, "👥 ім'я", `У цьому ж тесті є «${twin}» — схоже на те саме ім'я, записане інакше`);
       });
       const byStu = new Map();
@@ -221,8 +240,8 @@
   $("fPer").value = VIEW.per; $("fDate").value = VIEW.date || kyivDay(new Date()); $("fDate").hidden = VIEW.per !== "date";
   $("fCls").onchange = () => { VIEW.cls = $("fCls").value; saveView(); draw(); };
   $("fTest").onchange = () => { VIEW.test = $("fTest").value; saveView(); draw(); };
-  $("fPer").onchange = () => { VIEW.per = $("fPer").value; $("fDate").hidden = VIEW.per !== "date"; saveView(); draw(); };
-  $("fDate").onchange = () => { VIEW.date = $("fDate").value; saveView(); draw(); };
+  $("fPer").onchange = () => { VIEW.per = $("fPer").value; $("fDate").hidden = VIEW.per !== "date"; saveView(); needMore() ? loadResults() : draw(); };
+  $("fDate").onchange = () => { VIEW.date = $("fDate").value; saveView(); needMore() ? loadResults() : draw(); };
   $("fPick").value = VIEW.pick; $("fFlag").checked = !!VIEW.onlyFlag;
   $("fPick").onchange = () => { VIEW.pick = $("fPick").value; saveView(); draw(); };
   $("fFlag").onchange = () => { VIEW.onlyFlag = $("fFlag").checked; saveView(); draw(); };
@@ -254,11 +273,15 @@
     const day = per === "today" ? kyivDay(new Date()) : per === "date" ? $("fDate").value : null;
     return ROWS.filter((x) =>
       (!c || x.cls === c) && (!t || testKey(x) === t) &&
-      (per === "all" || (day !== null ? kyivDay(x.at) === day : now - x.at <= +per * 864e5)) &&
+      (per === "all" || (day !== null ? x.day === day : now - x.at <= +per * 864e5)) &&
       (!VIEW.onlyFlag || (x.flags || []).length));
   }
 
-  function draw() {
+  // таблиця малюється порціями: 20 тисяч рядків у DOM — це секунди на телефоні; плитки й середні рахуються з усіх
+  const STEP = 300; let shown = STEP;
+  $("moreBtn").onclick = () => { shown += STEP; draw(true); };
+  function draw(more) {
+    if (!more) shown = STEP;
     const rows = filtered().sort(sorter());
     // у підсумок — одна спроба кожного учня з кожного тесту: перша, найкраща чи остання (вибір у фільтрі)
     const pick = VIEW.pick || "first", chosen = new Map();
@@ -293,7 +316,7 @@
     // Сортування за класом — рядки згруповано, у заголовку групи підсумок класу
     const groups = VIEW.sort === "cls";
     let curCls = null;
-    rows.forEach((x) => {
+    rows.slice(0, shown).forEach((x) => {
       if (groups && x.cls !== curCls) {
         curCls = x.cls;
         const inCls = L.filter((r) => r.cls === curCls);
@@ -316,6 +339,9 @@
       body.appendChild(tr);
     });
     tb.appendChild(body);
+    const rest = rows.length - shown;
+    $("moreWrap").hidden = rest <= 0;
+    if (rest > 0) $("moreBtn").textContent = `Показати ще ${Math.min(STEP, rest)} (усього ${rows.length})`;
   }
 
   /* ---------- код уроку ---------- */

@@ -54,13 +54,16 @@ function results_(d) {
   if (!sh || sh.getLastRow() < 2) return json_({ ok: true, rows: [] });
   const data = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
   const head = data[0].map(String);
-  const rows = data.slice(1).map((r) => {
+  // since — віддати лише записи, новіші за цю дату (кабінет за замовчуванням просить останні 40 днів)
+  const since = d.since ? new Date(d.since).getTime() : 0, ti = head.indexOf("Час");
+  const fresh = since && ti >= 0 ? data.slice(1).filter((r) => { const v = r[ti]; const ms = v && typeof v.getTime === "function" ? v.getTime() : new Date(v).getTime(); return isNaN(ms) || ms >= since; }) : data.slice(1);
+  const rows = fresh.map((r) => {
     const o = {};
     COLS.forEach(([h, k]) => { const i = head.indexOf(h); o[k] = i < 0 ? "" : r[i]; });
     o.t = o.t && typeof o.t.getTime === "function" ? new Date(o.t.getTime()).toISOString() : String(o.t);
     return o;
   });
-  return json_({ ok: true, rows: rows });
+  return json_({ ok: true, rows: rows, since: since ? new Date(since).toISOString() : "" });
 }
 
 /* Дописати запис в аркуш, розклавши значення за назвами колонок цього аркуша */
