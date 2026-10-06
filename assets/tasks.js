@@ -19,7 +19,7 @@
 
   /* ================================================================ РОЗКЛАДИ ПО ГРУПАХ */
   const sort = {
-    parse: (v) => ({ type: "sort", q: v.q, groups: v.groups, items: v.items.map(([t, g]) => ({ t, g })), x: v.x || "", hint: "Для кожного рядка вибери групу." }),
+    parse: (v) => ({ type: "sort", q: v.q, groups: v.groups, items: v.items.map(([t, g]) => ({ t, g })), x: v.x || "", hint: "Біля кожного рядка натисни кнопку з правильною групою — вона підсвітиться. Розклав усе — тисни «Відповісти»." }),
     render(box, p, setReady) {
       const choice = new Map();
       const rows = shuffle(p.items.slice()).map((it) => {
@@ -54,7 +54,7 @@
 
   /* ================================================================ ВСТАНОВИ ПОРЯДОК */
   const order = {
-    parse: (v) => ({ type: "order", q: v.q, items: v.items, x: v.x || "", hint: "Натискай у правильному порядку. Натисни ще раз — щоб прибрати номер." }),
+    parse: (v) => ({ type: "order", q: v.q, items: v.items, x: v.x || "", hint: "Натискай пункти по черзі: перший, другий, третій… Біля кожного з'явиться номер. Помилився — натисни ще раз, і номер зникне." }),
     render(box, p, setReady) {
       const seq = [];
       const list = el("div", "olist");
@@ -210,7 +210,7 @@
     } }
   };
   const spot = {
-    parse: (v) => ({ type: "spot", q: v.q, scene: v.scene, target: [].concat(v.target), x: v.x || "", hint: "Клацни (торкнись) потрібного місця на схемі." }),
+    parse: (v) => ({ type: "spot", q: v.q, scene: v.scene, target: [].concat(v.target), x: v.x || "", hint: "Торкнись (клацни) потрібного місця на схемі — воно підсвітиться. Потім тисни «Відповісти»." }),
     render(box, p, setReady) {
       let ans = "";
       const S = SCENES[p.scene];

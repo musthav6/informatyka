@@ -150,11 +150,18 @@
     const codeInp = $("lcode");
     const gated = () => !!codeInp && needCode(LESSON_ID, T.kind);
     const showGate = () => { if (codeInp) { $("codeWrap").hidden = !gated(); $("codeMsg").textContent = ""; } };
-    const validStart = () => { $("go").disabled = !(sel.value && $("name").value.trim().split(/\s+/).length >= 2 && (!gated() || codeInp.value.trim())); };
+    // кнопка «Почати» неактивна — підказуємо, чого саме бракує
+    const validStart = () => {
+      const words = $("name").value.trim().split(/\s+/).filter(Boolean).length;
+      const miss = !sel.value ? "Обери свій клас у списку." : words < 2 ? "Впиши прізвище та ім'я — два слова, як у журналі." : gated() && !codeInp.value.trim() ? "Введи код уроку — його скаже вчитель." : "";
+      $("go").disabled = !!miss;
+      if ($("goHint")) $("goHint").textContent = miss ? "👉 " + miss : "Усе готово — натискай «Почати»!";
+    };
     sel.onchange = validStart; $("name").oninput = validStart;
     [$("name"), codeInp].forEach((inp) => { if (inp) inp.onkeydown = (e) => { if (e.key === "Enter" && !$("go").disabled) start(); }; });
     if (codeInp) codeInp.oninput = () => { $("codeMsg").textContent = ""; validStart(); };
     $("go").onclick = start;
+    validStart();
     if ($("swapPwd")) $("swapPwd").onkeydown = (e) => { if (e.key === "Enter") start(); };
     showGate();
 
@@ -257,12 +264,12 @@
       [...$("rail").children].forEach((el, k) => (el.className = k < st.i ? "done" : k === st.i ? "now" : ""));
       $("qnum").textContent = `${ATT > 1 || st.no > 1 ? `Спроба ${st.no} · ` : ""}Запитання ${st.i + 1} з ${N}`;
       $("qtext").textContent = p.q;
-      $("qhint").hidden = true;
+      $("qhint").hidden = true; $("qhint").classList.remove("task");
       if ($("qbonus")) $("qbonus").hidden = !isBonus(cur().sl);
       const box = $("opts"); box.innerHTML = ""; box.classList.remove("locked");
       box.classList.toggle("tasks", !!p.task);
       if (p.task) {
-        if (p.hint) { $("qhint").textContent = p.hint; $("qhint").hidden = false; }
+        if (p.hint) { $("qhint").textContent = p.hint; $("qhint").hidden = false; $("qhint").classList.add("task"); }
         picked = p.task.render(box, p, (ready) => { if (!st.checked) $("next").disabled = !ready; });
         $("next").textContent = p.task.button || "Відповісти";
         return;

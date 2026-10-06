@@ -161,6 +161,12 @@ section.card.gate{border-style:dashed}
 .qtext{font-size:clamp(18px,4.8vw,22px);font-weight:600;margin:0;text-wrap:pretty;white-space:pre-line;line-height:1.35;overflow-wrap:anywhere}
 .opt,.stext,.otext,.ib-body,.ib-subj,.goals li,.qx{overflow-wrap:anywhere}
 .hint{font-size:14px;color:var(--muted);margin:-6px 0 0}
+/* підказка до інтерактивного завдання — помітніша */
+.hint.task{margin:0;padding:8px 12px;border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:14px}
+.hint.task::before{content:"💡 "}
+.gohint{margin:-4px 0 0;font-size:14px;color:var(--accent-ink);font-weight:500}
+.howto summary{cursor:pointer;font-weight:600;color:var(--accent)}
+.howto ol{margin:8px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:4px;font-size:15px}
 /* водяний знак з іменем учня поверх завдань (engine.js → setWatermark) і розмиття без фокусу */
 #quiz{position:relative}
 #quiz::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background-image:var(--wm,none);background-repeat:repeat;z-index:5}
