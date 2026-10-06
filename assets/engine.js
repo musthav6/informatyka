@@ -87,6 +87,8 @@
   const shuffle = (a) => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
   const norm = (s) => String(s).toLowerCase().replace(/[’ʼ`']/g, "'").replace(/ё/g, "е").replace(/\s+/g, " ").replace(/,/g, ".").trim();
   const normName = (s) => norm(s).replace(/[^a-zа-щьюяїієґ' ]/gi, "");
+  // одна людина — один ключ, хоч би як переставили слова: «Синявська Анастасія» = «Анастасія Синявська»
+  const personKey = (s) => normName(s).split(" ").filter(Boolean).sort().join(" ");
   store.del("qz:device"); // раніше тут зберігався випадковий код пристрою — більше не використовуємо
   const fmt = (t) => { const d = new Date(t); return d.toLocaleDateString("uk-UA") + " " + d.toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" }); };
   const grade12 = (score, total) => Math.max(1, Math.round((score / total) * 12));
@@ -130,7 +132,8 @@
     const ATT = T.attempts || 1;
     const INSTANT = T.feedback === "instant";
     const KEY_ACTIVE = `qz:${T.id}:active`;
-    const recKey = (cls, name) => `qz:${T.id}:stu:${cls}|${normName(name)}`;
+    const recKey = (cls, name) => `qz:${T.id}:stu:${cls}|${personKey(name)}`;
+    const oldRecKey = (cls, name) => `qz:${T.id}:stu:${cls}|${normName(name)}`;   // до 06.10.2026 — без перестановки слів
     let st = null, picked = null, lock = false, warnTimer, tick, holdTimer;
 
     document.title = T.title;
@@ -152,9 +155,24 @@
     [$("name"), codeInp].forEach((inp) => { if (inp) inp.onkeydown = (e) => { if (e.key === "Enter" && !$("go").disabled) start(); }; });
     if (codeInp) codeInp.oninput = () => { $("codeMsg").textContent = ""; validStart(); };
     $("go").onclick = start;
+    if ($("swapPwd")) $("swapPwd").onkeydown = (e) => { if (e.key === "Enter") start(); };
     showGate();
 
-    function rec(cls, name) { return store.get(recKey(cls, name), { used: 0, extra: 0, attempts: [], lastVars: null }); }
+    function rec(cls, name) { return store.get(recKey(cls, name), null) || store.get(oldRecKey(cls, name), { used: 0, extra: 0, attempts: [], lastVars: null }); }
+
+    /* ---------- «нове ім'я — нова спроба»: хто нещодавно проходив цей тест з цього пристрою ----------
+       Список живе лише в браузері учня й нікуди не надсилається; у таблицю йде тільки ім'я попередника в «Примітці». */
+    const DEV_KEY = `qz:${T.id}:dev`, SWAP_MS = (T.kind === "diag" ? 120 : 60) * 60000;
+    function otherOnDevice(name) {
+      const me = personKey(name), since = Date.now() - SWAP_MS;
+      const prev = store.get(DEV_KEY, []).filter((x) => x.at > since && x.p !== me);
+      return prev.length ? prev[prev.length - 1].n : "";
+    }
+    function logDevice(name) {
+      const me = personKey(name), keep = Date.now() - 3 * 3600e3;
+      const log = store.get(DEV_KEY, []).filter((x) => x.at > keep && x.p !== me);
+      log.push({ p: me, n: name, at: Date.now() }); store.set(DEV_KEY, log.slice(-20));
+    }
     function saveRec(cls, name, r) { store.set(recKey(cls, name), r); }
     const allowed = (r) => ATT + (r.extra || 0);
 
@@ -168,6 +186,14 @@
       const cls = sel.value, name = $("name").value.trim().replace(/\s+/g, " ");
       const r = rec(cls, name);
       if (r.used >= allowed(r)) { showBlocked(cls, name); return; }
+      // діагностувальна: інше ім'я з того самого пристрою — лише з паролем учителя
+      if (T.kind === "diag" && otherOnDevice(name) && !checkTeacher($("swapPwd").value)) {
+        $("swapWrap").hidden = false;
+        $("swapMsg").textContent = $("swapPwd").value ? "Неправильний пароль." : "";
+        $("swapPwd").value = ""; $("swapPwd").focus();
+        return;
+      }
+      $("swapWrap").hidden = true;
       newAttempt(cls, name);
     }
 
@@ -179,7 +205,8 @@
         return pool[Math.floor(Math.random() * pool.length)];
       });
       st = { cls, name, no: r.used + 1, order: shuffle([...Array(N).keys()]), vars, i: 0, results: [], viol: 0, startedAt: Date.now(),
-             deadline: T.minutes ? Date.now() + T.minutes * 60000 : 0, checked: false };
+             deadline: T.minutes ? Date.now() + T.minutes * 60000 : 0, checked: false, prev: otherOnDevice(name) };
+      logDevice(name);
       r.used += 1; r.lastVars = vars; saveRec(cls, name, r);   // спроба рахується з моменту старту
       // Пасхалка: з імовірністю EGG_CHANCE на кожне питання одне з них замінюється легким бонусним (assets/eggs.js)
       const pool = (window.EGGS && EGGS.bonus) || [];
@@ -355,7 +382,7 @@
       r.attempts.push(att); saveRec(st.cls, st.name, r);
       queueResult({
         ts: new Date().toISOString(), testId: T.id, test: T.title, kind: T.kind, cls: st.cls, name: st.name,
-        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : ""].filter(Boolean).join("; "),
+        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : "", st.prev ? `👥 до цього з цього пристрою: ${st.prev}` : ""].filter(Boolean).join("; "),
         wrong: st.results.filter((x) => !x.ok).map((x) => `${x.sl + 1}${x.a === null ? "(пропуск)" : ""}`).join(", ")
       });
       const who = { cls: st.cls, name: st.name };

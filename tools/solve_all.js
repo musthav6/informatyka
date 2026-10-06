@@ -43,7 +43,7 @@ async function files(p, v) {
     if (g.sel) { await openDir(parent(g.sel)); await select(base(g.sel)); }
     else if (g.dir && node(tree, g.dir) === undefined) {
       const par = parent(g.dir), from = nots.find((n) => parent(n) === par && typeof node(tree, n) === "object");
-      if (from) { await openDir(par); await select(base(from)); await btn("Перейменувати"); await typeName(base(g.dir)); const d = par ? node(tree, par) : tree; d[base(g.dir)] = d[base(from)]; delete d[base(from)]; }
+      if (from) { await openDir(par); await select(base(from)); await btn("Перейме"); await typeName(base(g.dir)); const d = par ? node(tree, par) : tree; d[base(g.dir)] = d[base(from)]; delete d[base(from)]; }
       else await ensureDir(g.dir);
     }
     else if (g.has && node(tree, g.has) === undefined) {
@@ -55,7 +55,7 @@ async function files(p, v) {
         node(tree, parent(g.has))[base(g.has)] = "file"; if (!copy) delete node(tree, parent(src))[base(src)];
       } else {
         const from = nots.find((n) => parent(n) === parent(g.has) && node(tree, n) !== undefined);
-        await openDir(parent(from)); await select(base(from)); await btn("Перейменувати"); await typeName(base(g.has));
+        await openDir(parent(from)); await select(base(from)); await btn("Перейме"); await typeName(base(g.has));
         const d = node(tree, parent(from)); d[base(g.has)] = d[base(from)]; delete d[base(from)];
       }
     }

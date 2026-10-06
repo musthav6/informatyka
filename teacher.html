@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=202610061230">
+<link rel="stylesheet" href="assets/style.css?v=202610061545">
 </head>
 <body>
 <div class="wrap wide">
@@ -40,13 +40,30 @@
         <option value="all">Увесь час</option>
         <option value="date">Конкретна дата…</option>
       </select><input type="date" id="fDate" hidden aria-label="Дата"></label>
+      <label class="fld">У підсумок іде<select id="fPick">
+        <option value="first">перша спроба</option>
+        <option value="best">найкраща спроба</option>
+        <option value="last">остання спроба</option>
+      </select></label>
+      <label class="chk"><input type="checkbox" id="fFlag"> Лише з позначками</label>
     </div>
     <p class="small muted" id="resStatus" style="margin:0" aria-live="polite"></p>
 
     <div class="tiles" id="tiles"></div>
 
     <div class="tablewrap"><table class="t res" id="resTable"></table></div>
-    <p class="small muted" style="margin:0">У підсумку рахується остання спроба кожного учня з кожного тесту; у таблиці — усі спроби. Повні дані — у <a id="sheetLink" class="link" target="_blank" rel="noopener">Google Таблиці</a>.</p>
+    <p class="small muted" style="margin:0" id="pickNote"></p>
+    <details class="flaglegend">
+      <summary class="small"><b>Що означають позначки</b></summary>
+      <ul class="small" style="margin:6px 0 0;padding-left:18px">
+        <li><b>👥 ім'я</b> — у цьому ж тесті є учень зі схожим ім'ям (переставлені слова, одруківка) або з цього пристрою щойно проходили під іншим іменем: можлива нова спроба «під чужим» чи зміненим іменем.</li>
+        <li><b>🔓 дод. спроба</b> — спроба понад норму (діагностувальна — друга й далі, тренажер — третя й далі). Вона відкривається лише паролем учителя.</li>
+        <li><b>⚡ швидко</b> — менше 6 секунд на питання: схоже, клацав навмання.</li>
+        <li><b>📈 стрибок</b> — оцінка виросла на 5+ балів порівняно з попередньою спробою.</li>
+        <li><b>🚪 виходи</b> — двічі й більше виходив із тесту (інша вкладка, застосунок, знімок екрана); <b>⛔ закрито</b> — тест закрито через виходи.</li>
+      </ul>
+    </details>
+    <p class="small muted" style="margin:0">Однакові рядки (той самий результат, надісланий двічі) показано один раз. Повні дані — у <a id="sheetLink" class="link" target="_blank" rel="noopener">Google Таблиці</a>.</p>
   </section>
 
   <!-- ===== Код уроку ===== -->
@@ -76,8 +93,8 @@
     <code id="hash"></code>
   </details>
 </div>
-<script src="config.js?v=202610061230"></script>
-<script src="assets/engine.js?v=202610061230"></script>
+<script src="config.js?v=202610061545"></script>
+<script src="assets/engine.js?v=202610061545"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -107,7 +124,12 @@
       const text = await r.text();
       let d; try { d = JSON.parse(text); } catch (e) { throw new Error("old-script"); }
       if (!d.ok) throw new Error(d.error === "password" ? "pwd" : "server");
-      ROWS = d.rows.map((x) => ({ ...x, at: parseAt(x.t) })).filter((x) => !isNaN(x.at));
+      const seen = new Set();
+      ROWS = d.rows.map((x) => ({ ...x, at: parseAt(x.t) })).filter((x) => !isNaN(x.at)).filter((x) => {
+        const k = [x.t, x.cls, x.name, testKey(x), x.att, x.score, x.g].join("|");   // той самий результат, надісланий двічі
+        if (seen.has(k)) return false; seen.add(k); return true;
+      });
+      flagRows(ROWS);
       fillFilters(); draw();
       $("resStatus").textContent = `Оновлено о ${new Date().toLocaleTimeString("uk-UA", { hour: "2-digit", minute: "2-digit" })} · усього записів: ${ROWS.length}`;
     } catch (e) {
@@ -139,6 +161,48 @@
   ];
   const levelOf = (g) => LEVELS.find((l) => l.test(+g)) || LEVELS[3];
 
+  /* ---------- позначки: на що варто глянути ---------- */
+  // ім'я без регістру, апострофів-двійників і порядку слів: «Синявська Анастасія» = «анастасія синявська»
+  const pkey = (s) => String(s || "").toLowerCase().replace(/[’ʼ`]/g, "'").replace(/[^a-zа-щьюяїієґ' ]/gi, " ").split(/\s+/).filter(Boolean).sort().join(" ");
+  function lev(a, b) {   // відстань Левенштейна: скільки літер змінити, щоб одне ім'я стало іншим
+    const d = Array.from({ length: a.length + 1 }, (_, i) => [i]);
+    for (let j = 1; j <= b.length; j++) d[0][j] = j;
+    for (let i = 1; i <= a.length; i++) for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    return d[a.length][b.length];
+  }
+  const isDiag = (x) => /diag|tema/.test(String(testKey(x)));
+  function flagRows(rows) {
+    rows.forEach((x) => (x.flags = []));
+    const add = (x, short, tip) => { if (!x.flags.some((f) => f.s === short)) x.flags.push({ s: short, tip }); };
+    const groups = new Map();   // клас + тест
+    rows.forEach((x) => { const k = `${x.cls}|${testKey(x)}`; if (!groups.has(k)) groups.set(k, []); groups.get(k).push(x); });
+    for (const list of groups.values()) {
+      const names = [...new Set(list.map((x) => x.name))];
+      list.forEach((x) => {
+        const me = pkey(x.name);
+        const twin = names.find((n) => n !== x.name && (pkey(n) === me || (me.length >= 8 && lev(pkey(n), me) <= 2)));
+        if (twin) add(x, "👥 ім'я", `У цьому ж тесті є «${twin}» — схоже на те саме ім'я, записане інакше`);
+      });
+      const byStu = new Map();
+      list.forEach((x) => { const k = pkey(x.name); if (!byStu.has(k)) byStu.set(k, []); byStu.get(k).push(x); });
+      for (const a of byStu.values()) {
+        a.sort((p, q) => p.at - q.at);
+        for (let i = 1; i < a.length; i++) if (+a[i].g - +a[i - 1].g >= 5) add(a[i], "📈 стрибок", `Оцінка ${a[i - 1].g} → ${a[i].g} (попередня спроба о ${fmtAt(a[i - 1].at)})`);
+      }
+    }
+    rows.forEach((x) => {
+      if (+x.att >= (isDiag(x) ? 2 : 3)) add(x, "🔓 дод. спроба", `Спроба № ${x.att} — понад норму, відкривається лише паролем учителя`);
+      const sec = +x.total ? (+x.min * 60) / +x.total : 99;
+      if (sec < 6) add(x, "⚡ швидко", `${sec.toFixed(1).replace(".", ",")} с на питання — схоже, клацав навмання`);
+      if (+x.viol >= 2) add(x, "🚪 виходи", `Виходив із тесту ${x.viol} рази`);
+      if (/завершено/i.test(x.note || "")) add(x, "⛔ закрито", String(x.note));
+      const m = /👥 до цього з цього пристрою: ([^;]+)/.exec(x.note || "");
+      if (m) add(x, "👥 ім'я", `До цього з того самого пристрою цей тест проходив(-ла) «${m[1].trim()}»`);
+    });
+  }
+  const PICK = { first: "перша", best: "найкраща", last: "остання" };
+
   function fillFilters() {
     const keepCls = VIEW.cls, keepTest = VIEW.test;
     const cls = [...new Set([...(CONFIG.CLASSES || []), ...ROWS.map((x) => x.cls)])].filter(Boolean);
@@ -152,13 +216,16 @@
     $("fTest").value = tests.has(keepTest) ? keepTest : "";
   }
   /* ---------- вигляд: фільтри й сортування (пам'ятаються на цьому пристрої) ---------- */
-  const VIEW = Object.assign({ cls: "", test: "", per: "today", date: "", sort: "cls", dir: 1 }, QZ.store.get("tch:view", {}));
+  const VIEW = Object.assign({ cls: "", test: "", per: "today", date: "", sort: "cls", dir: 1, pick: "first", onlyFlag: false }, QZ.store.get("tch:view", {}));
   const saveView = () => QZ.store.set("tch:view", VIEW);
   $("fPer").value = VIEW.per; $("fDate").value = VIEW.date || kyivDay(new Date()); $("fDate").hidden = VIEW.per !== "date";
   $("fCls").onchange = () => { VIEW.cls = $("fCls").value; saveView(); draw(); };
   $("fTest").onchange = () => { VIEW.test = $("fTest").value; saveView(); draw(); };
   $("fPer").onchange = () => { VIEW.per = $("fPer").value; $("fDate").hidden = VIEW.per !== "date"; saveView(); draw(); };
   $("fDate").onchange = () => { VIEW.date = $("fDate").value; saveView(); draw(); };
+  $("fPick").value = VIEW.pick; $("fFlag").checked = !!VIEW.onlyFlag;
+  $("fPick").onchange = () => { VIEW.pick = $("fPick").value; saveView(); draw(); };
+  $("fFlag").onchange = () => { VIEW.onlyFlag = $("fFlag").checked; saveView(); draw(); };
 
   const nat = (a, b) => String(a ?? "").localeCompare(String(b ?? ""), "uk", { numeric: true, sensitivity: "base" });
   const COLS = [
@@ -170,8 +237,10 @@
     { h: "Виходи", k: "viol", cmp: (a, b) => (+a.viol || 0) - (+b.viol || 0), desc: true },
     { h: "Спр.", k: "att", cmp: (a, b) => (+a.att || 0) - (+b.att || 0) },
     { h: "Хв", k: "min", cmp: (a, b) => (+a.min || 0) - (+b.min || 0) },
-    { h: "Коли", k: "at", cmp: (a, b) => a.at - b.at, desc: true }
+    { h: "Коли", k: "at", cmp: (a, b) => a.at - b.at, desc: true },
+    { h: "Позначки", k: "flags", cmp: (a, b) => (a.flags || []).length - (b.flags || []).length, desc: true }
   ];
+  const NCOL = COLS.length;
   const colOf = (k) => COLS.find((c) => c.k === k) || COLS[1];
   // Основне сортування — вибрана колонка; далі завжди: новіші зверху, потім за прізвищем.
   const sorter = () => { const c = colOf(VIEW.sort); return (a, b) => VIEW.dir * c.cmp(a, b) || b.at - a.at || nat(a.name, b.name); };
@@ -185,23 +254,28 @@
     const day = per === "today" ? kyivDay(new Date()) : per === "date" ? $("fDate").value : null;
     return ROWS.filter((x) =>
       (!c || x.cls === c) && (!t || testKey(x) === t) &&
-      (per === "all" || (day !== null ? kyivDay(x.at) === day : now - x.at <= +per * 864e5)));
+      (per === "all" || (day !== null ? kyivDay(x.at) === day : now - x.at <= +per * 864e5)) &&
+      (!VIEW.onlyFlag || (x.flags || []).length));
   }
 
   function draw() {
     const rows = filtered().sort(sorter());
-    // остання спроба кожного учня з кожного тесту
-    const last = new Map();
-    rows.forEach((x) => { const k = `${testKey(x)}|${x.cls}|${String(x.name).toLowerCase()}`; const p = last.get(k); if (!p || x.at > p.at) last.set(k, x); });
-    const L = [...last.values()];
+    // у підсумок — одна спроба кожного учня з кожного тесту: перша, найкраща чи остання (вибір у фільтрі)
+    const pick = VIEW.pick || "first", chosen = new Map();
+    const better = (x, p) => pick === "first" ? x.at < p.at : pick === "last" ? x.at > p.at : (+x.g > +p.g || (+x.g === +p.g && x.at < p.at));
+    rows.forEach((x) => { const k = `${testKey(x)}|${x.cls}|${pkey(x.name)}`; const p = chosen.get(k); if (!p || better(x, p)) chosen.set(k, x); });
+    const L = [...chosen.values()], counted = new Set(L);
+    $("pickNote").textContent = `У підсумку (плитки й середні) рахується ${PICK[pick]} спроба кожного учня з кожного тесту — у таблиці вона позначена ★; решта спроб — для довідки.`;
 
     const tiles = $("tiles"); tiles.innerHTML = "";
     const tile = (label, value, sub, cls) => { const t = el("div", "tile" + (cls ? " " + cls : "")); t.append(el("span", "tl", label), el("b", "tv", value), el("span", "ts", sub || "")); tiles.appendChild(t); };
     const avg = L.length ? (L.reduce((s, x) => s + (+x.g || 0), 0) / L.length).toFixed(1).replace(".", ",") : "—";
-    tile("Учнів", String(new Set(L.map((x) => `${x.cls}|${String(x.name).toLowerCase()}`)).size), `робіт: ${L.length}`);
+    tile("Учнів", String(new Set(L.map((x) => `${x.cls}|${pkey(x.name)}`)).size), `робіт: ${L.length}`);
     tile("Середня оцінка", avg, "з 12");
     LEVELS.forEach((lv) => tile(lv.label, String(L.filter((x) => lv.test(+x.g)).length), lv.range + " балів", "lv-" + lv.key));
     tile("Виходили з вкладки", String(L.filter((x) => +x.viol > 0).length), "учнів", L.some((x) => +x.viol > 0) ? "lv-warn" : "");
+    const flagged = new Set(rows.filter((x) => (x.flags || []).length).map((x) => `${x.cls}|${pkey(x.name)}`));
+    tile("З позначками", String(flagged.size), "учнів — глянь", flagged.size ? "lv-warn" : "");
 
 
     const tb = $("resTable"); tb.innerHTML = "";
@@ -215,25 +289,29 @@
     });
     const thead = el("thead"); thead.appendChild(head); tb.appendChild(thead);
     const body = el("tbody");
-    if (!rows.length) { const tr = el("tr"); const td = el("td", "muted", "За цими фільтрами записів немає."); td.colSpan = 9; tr.appendChild(td); body.appendChild(tr); }
+    if (!rows.length) { const tr = el("tr"); const td = el("td", "muted", "За цими фільтрами записів немає."); td.colSpan = NCOL; tr.appendChild(td); body.appendChild(tr); }
     // Сортування за класом — рядки згруповано, у заголовку групи підсумок класу
     const groups = VIEW.sort === "cls";
     let curCls = null;
     rows.forEach((x) => {
       if (groups && x.cls !== curCls) {
         curCls = x.cls;
-        const inCls = rows.filter((r) => r.cls === curCls);
-        const avgG = (inCls.reduce((s, r) => s + (+r.g || 0), 0) / inCls.length).toFixed(1).replace(".", ",");
-        const gr = el("tr", "grp"); const td = el("td"); td.colSpan = 9;
+        const inCls = L.filter((r) => r.cls === curCls);
+        const avgG = inCls.length ? (inCls.reduce((s, r) => s + (+r.g || 0), 0) / inCls.length).toFixed(1).replace(".", ",") : "—";
+        const gr = el("tr", "grp"); const td = el("td"); td.colSpan = NCOL;
         td.append(el("b", "", curCls || "Без класу"), document.createTextNode(` · записів: ${inCls.length} · середня ${avgG}`));
         gr.appendChild(td); body.appendChild(gr);
       }
       const tr = el("tr");
       const lv = levelOf(x.g);
-      const gcell = el("td", "g lv-" + lv.key); gcell.append(el("b", "", String(x.g)), el("span", "small muted", " " + lv.label.toLowerCase()));
+      const gcell = el("td", "g lv-" + lv.key); gcell.append(el("b", "", (counted.has(x) ? "★ " : "") + String(x.g)), el("span", "small muted", " " + lv.label.toLowerCase()));
+      if (counted.has(x)) gcell.title = "Ця спроба йде в підсумок";
+      const fcell = el("td", "flags");
+      (x.flags || []).forEach((f) => { const b = el("span", "flag", f.s); b.title = f.tip; fcell.appendChild(b); });
+      if ((x.flags || []).length) fcell.onclick = () => alert(`${x.name}, ${x.cls}\n\n` + x.flags.map((f) => `${f.s} — ${f.tip}`).join("\n"));
       tr.append(el("td", "", x.name), el("td", "num", x.cls), gcell, el("td", "small", x.test),
         el("td", "num", `${x.score}/${x.total}`), el("td", "num" + (+x.viol > 0 ? " warn-t" : ""), String(x.viol || 0)),
-        el("td", "num", String(x.att)), el("td", "num", String(x.min ?? "")), el("td", "num small", fmtAt(x.at)));
+        el("td", "num", String(x.att)), el("td", "num", String(x.min ?? "")), el("td", "num small", fmtAt(x.at)), fcell);
       if (x.note) tr.title = x.note;
       body.appendChild(tr);
     });

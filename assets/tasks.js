@@ -250,7 +250,7 @@
   const build = (name, spec) => spec === "file" || typeof spec === "string" ? { type: "file", name } : { type: "dir", name, children: Object.entries(spec || {}).map(([k, v]) => build(k, v)) };
   const clone = (n) => n.type === "dir" ? { type: "dir", name: n.name, children: n.children.map(clone) } : { type: "file", name: n.name };
   sims.files = {
-    hint: "Працюй як у Провіднику: торкнись файлу чи папки, щоб виділити; ще раз — відкрити папку. На комп'ютері працюють Ctrl + C / X / V, F2, Delete.",
+    hint: "Торкнись файлу чи папки, щоб виділити, — потім обери дію на кнопках угорі. Папку відкриває кнопка «Відкрити» (або подвійне натискання). Підказка внизу вікна скаже, що робити далі. На комп'ютері працюють і Ctrl + C / X / V, F2, Delete.",
     render(box, p, setReady) {
       const root = build("Диск D:", p.start);
       const S = { cwd: [root], sel: null, clip: null, bin: [], binOpen: false, restored: new Set(), msg: "" };
@@ -266,6 +266,7 @@
       const fx = el("div", "fx");
       box.append(goals, fx);
       const act = {
+        open() { if (!S.sel || S.sel.type !== "dir") return say("Виділи папку, яку треба відкрити."); S.cwd.push(S.sel); S.sel = null; S.msg = ""; draw(); },
         newdir() { const d = cur(); const n = { type: "dir", name: uniq(d, "Нова папка"), children: [] }; d.children.push(n); S.sel = n; startRename(); },
         rename() { if (!S.sel) return say("Спершу виділи файл або папку."); startRename(); },
         copy() { if (!S.sel) return say("Спершу виділи, що копіювати."); S.clip = { node: S.sel, from: cur(), mode: "copy" }; say(`Скопійовано в буфер: ${S.sel.name}`); },
@@ -310,8 +311,10 @@
       function draw() {
         fx.replaceChildren();
         const bar = el("div", "fx-bar");
-        [["newdir", "📁＋", "Нова папка"], ["rename", "✏️", "Перейменувати"], ["copy", "📋", "Копіювати"], ["cut", "✂️", "Вирізати"], ["paste", "📥", "Вставити"], ["del", "🗑️", "Видалити"], ["bin", "♻️", S.binOpen ? "Закрити Кошик" : `Кошик (${S.bin.length})`]]
-          .forEach(([k, ic, t]) => { const b = el("button", "fx-b"); b.type = "button"; b.append(el("span", "", ic), el("span", "fx-bt", t)); b.onclick = () => { if (!locked(box)) act[k](); }; bar.appendChild(b); });
+        // кнопка, якій зараз нічого робити (нічого не виділено, буфер порожній), — бліда, але натискається й пояснює чому
+        const can = { open: !S.binOpen && !!S.sel && S.sel.type === "dir", newdir: !S.binOpen, rename: !S.binOpen && !!S.sel, copy: !S.binOpen && !!S.sel, cut: !S.binOpen && !!S.sel, paste: !S.binOpen && !!S.clip, del: !S.binOpen && !!S.sel, bin: true };
+        [["open", "📂", "Відкрити"], ["newdir", "📁＋", "Нова папка"], ["rename", "✏️", "Перейме\u00adнувати"], ["copy", "📋", "Копіювати"], ["cut", "✂️", "Вирізати"], ["paste", "📥", "Вставити"], ["del", "🗑️", "Видалити"], ["bin", "♻️", S.binOpen ? "Закрити Кошик" : `Кошик (${S.bin.length})`]]
+          .forEach(([k, ic, t]) => { const b = el("button", "fx-b" + (can[k] ? "" : " off")); b.type = "button"; b.append(el("span", "fx-bi", ic), el("span", "fx-bt", t)); b.onclick = () => { if (!locked(box)) act[k](); }; bar.appendChild(b); });
         const path = el("div", "fx-path");
         const up = el("button", "fx-up", "⬆"); up.type = "button"; up.title = "Вгору"; up.disabled = S.cwd.length < 2; up.onclick = () => !locked(box) && act.up();
         path.append(up, el("span", "", S.cwd.map((d) => d.name).join(" › ")));
@@ -339,9 +342,20 @@
         inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); finishRename(true); } if (e.key === "Escape") finishRename(false); e.stopPropagation(); };
         const ok = el("button", "btn small-btn", "OK"); ok.type = "button"; ok.onclick = () => finishRename(true);
         ren.append(inp, ok);
-        const status = el("div", "fx-status", S.msg || `Елементів: ${S.binOpen ? S.bin.length : cur().children.length}${S.clip ? ` · у буфері: ${S.clip.node.name}` : ""}`);
+        const status = el("div", "fx-status", S.msg ? "ℹ️ " + S.msg : "👉 " + nextStep());
         fx.append(bar, path, grid, ren, status);
+        markGoals();
       }
+      // підказка «що робити далі» — коли немає свіжого повідомлення про дію
+      function nextStep() {
+        if (S.binOpen) return S.bin.length ? "Біля потрібного файлу натисни «Відновити». Щоб повернутися до папок — «Закрити Кошик»." : "Кошик порожній. Натисни «Закрити Кошик».";
+        if (S.clip) return `У буфері: ${S.clip.node.name}. Відкрий папку, куди його треба вставити, і натисни «Вставити».`;
+        if (S.sel && S.sel.type === "dir") return `Виділено папку «${S.sel.name}». Натисни «Відкрити», щоб зайти в неї, або обери іншу дію вгорі.`;
+        if (S.sel) return `Виділено «${S.sel.name}». Тепер обери дію на кнопках угорі.`;
+        return S.cwd.length > 1 ? "Торкнись файлу чи папки, щоб виділити. Кнопка ⬆ — повернутися на рівень вище." : "Торкнись файлу чи папки, щоб виділити.";
+      }
+      // ціль, яку вже виконано, одразу отримує галочку
+      function markGoals() { [...goals.children].forEach((li, i) => { if (!li.classList.contains("right") && !li.classList.contains("wrong")) li.classList.toggle("done", check(p.goals[i])); }); }
       function onKey(e) {
         if (locked(box) || !document.body.contains(fx) || (e.target && e.target.tagName === "INPUT")) return;
         const c = comboOf(e), map = { "Ctrl + C": "copy", "Ctrl + X": "cut", "Ctrl + V": "paste", "F2": "rename", "Delete": "del", "Backspace": "up" };
@@ -349,7 +363,6 @@
         else if (c === "Enter" && S.sel && S.sel.type === "dir") { e.preventDefault(); tap(S.sel); }
       }
       document.addEventListener("keydown", onKey, true);
-      draw(); setReady(true);
       const check = (g) => {
         if (g.dir) { const n = find(g.dir); return !!n && n.type === "dir"; }
         if (g.has) return !!find(g.has);
@@ -360,6 +373,7 @@
         if (g.sel) { const n = find(g.sel); return !!n && S.sel === n; }
         return false;
       };
+      draw(); setReady(true);
       return { get: () => (p.goals || []).map(check), text: () => (p.goals || []).filter((g, i) => !check(g)).map((g) => "не виконано: " + g.t).join("; ") || "усе виконано", stop: () => document.removeEventListener("keydown", onKey, true), goals };
     },
     judge: (p, res) => res.length > 0 && res.every(Boolean),

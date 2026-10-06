@@ -282,6 +282,11 @@ table.res td.g.lv-mid{border-left-color:var(--warn)}
 table.res td.g.lv-low{border-left-color:var(--fail)}
 table.res tr.grp td{background:var(--accent-soft);color:var(--fg);font-size:14px;padding:8px 10px;border-bottom:0}
 .warn-t{color:var(--fail);font-weight:700}
+.filters .chk{display:flex;align-items:center;gap:8px;font-size:14px;font-weight:600;align-self:end;padding-bottom:10px}
+.filters .chk input{width:18px;height:18px}
+td.flags{min-width:110px;cursor:pointer}
+.flag{display:inline-block;margin:1px 3px 1px 0;padding:1px 7px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap;background:var(--warn-soft);color:var(--warn)}
+.flaglegend summary{cursor:pointer}
 .sortbtn{all:unset;cursor:pointer;font:inherit;font-size:13px;font-weight:600;color:var(--muted);white-space:nowrap;padding:2px 0}
 .sortbtn:hover,.sortbtn.on{color:var(--accent)}
 .sortbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
@@ -423,7 +428,8 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 .hot.wrong{stroke:var(--fail);stroke-width:3;fill:color-mix(in srgb,var(--fail) 22%,transparent)}
 /* цілі симулятора */
 .goals{margin:0;padding:12px 14px 12px 34px;border-radius:14px;background:var(--accent-soft);display:flex;flex-direction:column;gap:4px;font-weight:500}
-.goals li.right{color:var(--pass)}
+.goals li.done,.goals li.right{color:var(--pass)}
+.goals li.done::marker{content:"✓  "}
 .goals li.right::marker{content:"✓  "}
 .goals li.wrong{color:var(--fail)}
 .goals li.wrong::marker{content:"✗  "}
@@ -432,7 +438,18 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 .fx-bar{display:flex;flex-wrap:wrap;gap:4px;padding:8px;background:var(--surface-2);border-bottom:1px solid var(--line)}
 .fx-b{display:flex;align-items:center;gap:6px;font:inherit;font-size:13px;font-weight:600;padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);cursor:pointer}
 .fx-b:hover{border-color:var(--accent)}
-@media (max-width:480px){.fx-bt{display:none}.fx-b{font-size:18px;padding:7px 11px}}
+.fx-b.off{opacity:.45}
+.fx-bi{font-size:16px;line-height:1;white-space:nowrap}
+.fx-bt{-webkit-hyphens:manual;hyphens:manual}
+/* на телефоні — сітка 4 × 2, значок над підписом: підписи не ховаємо */
+@media (max-width:560px){
+  .fx-bar{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5px;padding:6px}
+  .fx-b{flex-direction:column;justify-content:center;gap:3px;padding:7px 2px;font-size:11px;line-height:1.15;text-align:center;min-height:52px;min-width:0}
+  .fx-bt{overflow-wrap:anywhere}
+  .fx-bi{font-size:19px}
+}
+@media (max-width:440px){.fx-bar{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media (max-width:350px){.fx-bar{grid-template-columns:repeat(2,minmax(0,1fr))}.fx-b{flex-direction:row;gap:6px;min-height:40px}}
 .fx-path{display:flex;align-items:center;gap:8px;padding:8px 10px;font-size:14px;border-bottom:1px solid var(--line);color:var(--muted)}
 .fx-up{font:inherit;border:1px solid var(--line);border-radius:8px;background:var(--surface-2);color:var(--fg);padding:2px 8px;cursor:pointer}
 .fx-up:disabled{opacity:.4;cursor:default}
@@ -447,7 +464,7 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 .fx-restore{font:inherit;font-size:12px;font-weight:600;border:1px solid var(--accent);color:var(--accent);background:transparent;border-radius:999px;padding:3px 10px;cursor:pointer}
 .fx-rename{display:flex;gap:8px;padding:8px 10px;border-top:1px solid var(--line);background:var(--accent-soft)}
 .fx-rename input{flex:1}
-.fx-status{padding:7px 10px;font-size:13px;color:var(--muted);border-top:1px solid var(--line);background:var(--surface-2)}
+.fx-status{padding:9px 12px;font-size:14px;color:var(--fg);border-top:1px solid var(--line);background:var(--accent-soft)}
 /* «Пошта Ліцею» */
 .ib{border:1px solid var(--line-2);border-radius:16px;overflow:hidden;background:var(--surface)}
 .ib-head{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;padding:10px 12px;background:var(--grad);color:#fff}
