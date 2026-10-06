@@ -161,6 +161,8 @@ section.card.gate{border-style:dashed}
 .qtext{font-size:clamp(18px,4.8vw,22px);font-weight:600;margin:0;text-wrap:pretty;white-space:pre-line;line-height:1.35;overflow-wrap:anywhere}
 .opt,.stext,.otext,.ib-body,.ib-subj,.goals li,.qx{overflow-wrap:anywhere}
 .hint{font-size:14px;color:var(--muted);margin:-6px 0 0}
+.ainote{margin:-4px 0 0;padding:6px 10px;border-left:3px solid var(--line-2);border-radius:0 8px 8px 0;background:var(--surface-2);color:var(--muted);font-size:12px;line-height:1.4}
+.ainote span{opacity:.85}
 .opts{display:flex;flex-direction:column;gap:10px}
 .opt{display:flex;gap:12px;align-items:center;padding:14px;border:1.5px solid var(--line);border-radius:14px;cursor:pointer;background:var(--surface);position:relative;transition:border-color .12s,background .12s,transform .12s}
 .opt:hover{border-color:color-mix(in srgb,var(--accent) 55%,var(--line))}
