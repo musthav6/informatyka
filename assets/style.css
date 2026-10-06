@@ -112,6 +112,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .badge{font-size:12.5px;font-weight:600;padding:4px 10px;border-radius:999px;background:var(--accent-soft);color:var(--accent-ink);white-space:nowrap}
 .badge.diag{background:var(--warn-soft);color:var(--warn)}
 .badge.prac{background:var(--pass-soft);color:var(--pass)}
+.badge.tool{background:var(--warn-soft);color:var(--warn)}
 .badge.sim{background:var(--sim-soft);color:var(--sim)}
 
 /* ---------- сторінка уроку: теорія ---------- */
@@ -121,6 +122,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .def{position:relative;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px 14px 12px 18px;text-wrap:pretty}
 .def::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--grad)}
 .def b{color:var(--accent-ink)}
+/* «Коротко — на 9 балів» і ⭐-визначення для 12 */
+.brief{display:flex;flex-direction:column;gap:8px}
+.brief p{margin:0;line-height:1.55}
+.def.plus{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.def.plus::before{background:var(--warn)}
+.plusb{display:inline-block;margin-right:4px;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:var(--warn);color:var(--surface);vertical-align:1px;white-space:nowrap}
+.pluslegend{margin:0;font-size:14px;color:var(--muted)}
 .keyhead{margin:2px 0 6px;font-weight:600;font-size:14px;color:var(--muted)}
 .key{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:8px}
 .key li{position:relative;padding-left:30px}
@@ -131,6 +139,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .titem:hover{transform:translateY(-2px);box-shadow:var(--shadow-hi);border-color:color-mix(in srgb,var(--accent) 35%,var(--line))}
 .ticon{flex:none;width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:22px;background:var(--accent-soft)}
 .ticon.prac{background:var(--pass-soft)}
+.ticon.tool{background:var(--warn-soft)}
 .ticon.diag{background:var(--warn-soft)}
 .ticon.sim{background:var(--sim-soft)}
 .tbody{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
@@ -413,6 +422,16 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 .sc-tabon{fill:var(--accent-soft)}
 .sc-ribbon{fill:var(--surface-2);stroke:var(--line)}
 .sc-rbtn{fill:transparent}
+.sc-cloud{fill:color-mix(in srgb,var(--accent-3) 18%,var(--surface));stroke:var(--line-2)}
+.sc-wire{stroke:var(--muted);stroke-width:3}
+.sc-wireless{stroke:var(--muted);stroke-width:1.5;stroke-dasharray:3 3}
+.sc-waves{stroke:var(--accent);stroke-width:2.5;stroke-linecap:round}
+.sc-stage{fill:#fff;stroke:var(--line-2)}
+.sc-ball{fill:#f97316}
+.sc-path{stroke:#94a3b8;stroke-width:1.5;stroke-dasharray:4 3}
+.sc-cell{fill:var(--surface);stroke:var(--line)}
+.sc-key{fill:var(--accent-soft);stroke:var(--accent)}
+.sc-tc{font-size:12px;font-weight:600;text-anchor:middle;fill:var(--fg)}
 .sc-arrowbg{fill:#fff;stroke:#999}
 .sc-t{font-size:12px;font-weight:600;fill:var(--fg)}
 .sc-s{font-size:11px;fill:var(--muted)}
@@ -425,6 +444,7 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 .sc-apps{font-size:12px;text-anchor:middle}
 .sc-clock{font-size:11px;text-anchor:middle;fill:#e8ebfa}
 .sc-tabt{font-size:9.5px;text-anchor:middle;fill:var(--fg)}
+.sc-tabt.sc-xs{font-size:8.3px}
 .sc-sendt{font-size:11px;font-weight:700;text-anchor:middle;fill:#fff}
 .hot{cursor:pointer;transition:fill .12s,stroke .12s}
 .hot:hover{stroke:var(--accent);stroke-width:2}
@@ -496,11 +516,54 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 :root[data-theme="dark"] .ib-link{color:#7cb3ff}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .ib-link{color:#7cb3ff}}
 .ib-att{font-size:14px;color:var(--muted)}
-.ib-status{font-size:13px;color:var(--muted);padding:8px 10px;border-radius:10px;background:var(--surface-2);border:1px dashed var(--line-2);word-break:break-all}
+.ib-status{font-size:13px;color:var(--muted);padding:8px 10px;border-radius:10px;background:var(--surface-2);border:1px dashed var(--line-2);overflow-wrap:anywhere}
 .ib-status.on{color:var(--fg);border-style:solid;border-color:var(--accent)}
 .ib-btns{display:flex;gap:8px;flex-wrap:wrap}
 .ib-btns .btn{flex:1;min-width:130px}
 .ib-ph{color:var(--fail)!important;border-color:color-mix(in srgb,var(--fail) 55%,transparent)!important}
+/* стрічка «Шукач» / «Чат класу» */
+.fd{border:1px solid var(--line-2);border-radius:16px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column}
+.fd-query{display:flex;gap:8px;align-items:center;margin:10px 12px 2px;padding:8px 14px;border:1px solid var(--line-2);border-radius:999px;background:var(--surface-2)}
+.fd-qtext{font-weight:600}
+.fd-item{display:flex;flex-direction:column;gap:6px;padding:12px;border-bottom:1px solid var(--line)}
+.fd-item.right{background:var(--pass-soft)}
+.fd-item.wrong{background:var(--fail-soft)}
+.fd-title{font-weight:700;color:#1a56db;font-size:16px}
+:root[data-theme="dark"] .fd-title{color:#7cb3ff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .fd-title{color:#7cb3ff}}
+.fd-url{font-size:13px;color:var(--pass);word-break:break-all}
+.fd-body p{margin:0 0 4px;font-size:15px}
+.fd-chat .fd-body{background:var(--surface-2);border-radius:4px 14px 14px 14px;padding:8px 12px;margin-left:44px}
+.fd-top{display:flex;gap:10px;align-items:center}
+.fd-who{display:flex;flex-direction:column;min-width:0}
+.fd-who span{font-size:12px;color:var(--muted)}
+.fd-btns{display:flex;flex-wrap:wrap;gap:6px}
+.fd-chat .fd-btns{margin-left:44px}
+.fd-b{font:inherit;font-size:14px;font-weight:600;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line-2);background:var(--surface);color:var(--fg);cursor:pointer}
+.fd-b.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent-ink)}
+.fd .ib-status{margin:10px 12px 0}
+.fd-count{margin:8px 12px 12px}
+.fd-item .ib-why{padding:0;border:0}
+/* колірна палітра */
+.cl{display:flex;flex-direction:column;gap:12px;padding:12px;border:1px solid var(--line-2);border-radius:16px;background:var(--surface)}
+.cl.right{background:var(--pass-soft)}
+.cl.wrong{background:var(--fail-soft)}
+.cl-given{display:flex;flex-direction:column;gap:2px}
+.cl-code{font-family:ui-monospace,Consolas,monospace;font-size:22px;letter-spacing:.5px}
+.cl-sliders{display:flex;flex-direction:column;gap:10px}
+.cl-row{display:grid;grid-template-columns:26px 1fr 64px;gap:10px;align-items:center}
+.cl-row input[type=range]{width:100%;height:28px}
+.cl-row input[type=number]{padding:6px 8px;font-size:16px}
+.cl-ch{font-size:18px}.cl-r{color:#dc2626}.cl-g{color:#16a34a}.cl-b{color:#2563eb}
+.cl-row-r input[type=range]{accent-color:#dc2626}.cl-row-g input[type=range]{accent-color:#16a34a}.cl-row-b input[type=range]{accent-color:#2563eb}
+.cl-code .cl-chip{display:inline-block;margin:4px 8px 0 0;padding:2px 10px;border:1px solid currentColor;border-radius:10px;background:var(--surface)}
+.cl-chip small{font-size:14px;font-weight:800}
+.cl-hexrow{display:flex;gap:10px;align-items:center}
+.cl-hexrow input{flex:1;font-family:ui-monospace,Consolas,monospace;font-size:18px;text-transform:uppercase}
+.cl-prev{display:flex;gap:12px;align-items:center}
+.cl-sw{width:56px;height:56px;border-radius:14px;border:1px solid var(--line-2);flex:none}
+.cl-sw.empty{background:repeating-linear-gradient(45deg,var(--surface-2) 0 6px,var(--surface) 6px 12px)!important}
+.cl-lab{font-family:ui-monospace,Consolas,monospace;font-size:15px}
 /* вузли */
 svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;touch-action:none;user-select:none}
 .nd-grid{stroke:var(--line);stroke-width:1}
@@ -513,3 +576,25 @@ svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;tou
 .nd-hit{fill:transparent}
 .nd-dot{fill:var(--surface);stroke:var(--fg);stroke-width:3}
 .nd-node.on .nd-dot{fill:var(--accent);stroke:var(--accent)}
+/* симулятор «Ключові кадри» (tween) */
+.tw{display:flex;flex-direction:column;gap:10px;padding:10px;border:1px solid var(--line-2);border-radius:16px;background:var(--surface)}
+.tw.right{background:var(--pass-soft)}.tw.wrong{background:var(--fail-soft)}
+.tw-stage{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none;border-radius:10px}
+.tw-bg{fill:#d7efff}
+.tw-obj{cursor:grab}.tw-obj.on{cursor:grabbing}
+.tw-hit{fill:transparent}
+.tw-ring{fill:none;stroke:#4f46e5;stroke-width:2.5;stroke-dasharray:6 5}
+.tw-ghost{pointer-events:none}
+.tw-ghost.right .tw-ring{stroke:#15803d;stroke-dasharray:none}.tw-ghost.wrong .tw-ring{stroke:#c2410c}
+.tw-lab{font:600 11px var(--body);fill:#1e293b}
+.tw-dot{fill:#4f46e5;opacity:.35;pointer-events:none}.tw-dot.key{opacity:.9}
+.tw-info{margin:0}
+.tw-row{grid-template-columns:96px 1fr 64px}
+.tw-n{font-size:14px}
+.tw-cells{display:flex;gap:3px;overflow-x:auto;padding-bottom:6px}
+.tw-cell{font:inherit;flex:0 0 32px;height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1px solid var(--line-2);border-radius:6px;background:var(--surface-2);color:var(--muted);font-size:12px;cursor:pointer;padding:0}
+.tw-cell .k{font-size:12px;height:15px;line-height:15px;color:var(--accent)}
+.tw-cell.goal{border-color:var(--accent)}
+.tw-cell.cur{background:var(--accent);border-color:var(--accent);color:#fff}.tw-cell.cur .k{color:#fff}
+.tw-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
+.tw-bar .btn{align-self:auto}

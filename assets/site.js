@@ -26,7 +26,8 @@
   const findPractice = (id) => PRACTICE.list.find((p) => p.id === id);
   const lessonOf = (grade, n) => (window.LESSONS || []).find((l) => l.grade === grade && l.n === n);
 
-  const kindOf = (a) => (a.practice ? "practice" : (findTest(a.test) || {}).kind || "train");
+  const kindOf = (a) => (a.tool ? "tool" : a.practice ? "practice" : (findTest(a.test) || {}).kind || "train");
+  const TOOLS = { animator: { href: "animator.html", title: "«Аніматор Ліцею» — редактор анімації", meta: "Працює в браузері: комп'ютер і телефон · без входу" } };
 
   /* Поле «Код уроку»: показати, перевірити, після успіху — onOpen() */
   function setupGate(lessonId, onOpen) {
@@ -44,6 +45,10 @@
   const fewForm = (n) => n % 10 >= 1 && n % 10 <= 4 && !(n % 100 >= 11 && n % 100 <= 14);
   /* Опис однієї дії уроку: посилання, назва, бейдж, підпис */
   function actInfo(a) {
+    if (a.tool) {
+      const t = TOOLS[a.tool];
+      return t ? { href: t.href, title: t.title, badge: "Редактор", cls: "tool", icon: "🎬", meta: t.meta } : null;
+    }
     if (a.practice) {
       const p = findPractice(a.practice);
       if (!p) return null;
@@ -116,6 +121,12 @@
     $("lTitle").textContent = l.title;
     $("lBook").textContent = l.book ? `Підручник: ${l.book}` : "";
 
+    // нові уроки (з 7-го): «Коротко — на 9 балів» з абзацами суті, а ⭐-визначення для 12 — у повному конспекті
+    $("shortTitle").textContent = l.brief ? "Коротко — на 9 балів" : "Теорія коротко";
+    $("fullTitle").textContent = l.plus ? "Повний конспект — на 12 балів" : "Повний конспект";
+    $("plusLegend").hidden = !l.plus;
+    const brief = $("brief"); brief.innerHTML = ""; brief.hidden = !(l.brief && l.brief.length);
+    (l.brief || []).forEach((t) => brief.appendChild(el("p", "", t)));
     const defs = $("defs"); defs.innerHTML = "";
     (l.defs || []).forEach(([term, text]) => {
       const d = el("div", "def");
@@ -133,8 +144,10 @@
     (l.key || []).forEach((k) => key.appendChild(el("li", "", k)));
     $("keyWrap").hidden = !(l.key && l.key.length);
 
-    const acts = $("acts"); acts.innerHTML = "";
-    l.acts.forEach((a) => { const link = actLink(a); if (link) acts.appendChild(link); });
+    const acts = $("acts"), tools = $("toolActs"); acts.innerHTML = ""; tools.innerHTML = "";
+    // редактори (tool) відкриваються без коду уроку — окремим списком над полем коду
+    l.acts.forEach((a) => { const link = actLink(a); if (link) (a.tool ? tools : acts).appendChild(link); });
+    tools.hidden = !tools.children.length;
     $("qrLink").href = `qr.html?l=${l.id}`;
     if (l.acts.some((a) => QZ.needCode(l.id, kindOf(a)))) {
       acts.classList.add("dim"); acts.setAttribute("aria-disabled", "true");
@@ -160,6 +173,7 @@
 
   function showPractice(p) {
     $("pCard").hidden = false;
+    if (p.tool && !$("pTool")) { const link = actLink({ tool: p.tool }); if (link) { link.id = "pTool"; $("pTabs").before(link); } }
 
     const modes = Object.keys(p.modes);
     let mode = store.get("prac:mode", null);

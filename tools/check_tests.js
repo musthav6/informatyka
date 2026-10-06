@@ -55,6 +55,36 @@ for (const t of list) {
           const mark = new Map(v.mails.map((m, i) => [i, m.phish]));
           if (!T.sim.judge(p, mark)) bad(w + ": правильні позначки не зараховуються");
         }
+        if (v.sim === "feed") {
+          if (!["search", "chat"].includes(v.view)) bad(w + ": view має бути search або chat");
+          const keys = (v.labels || []).map((l) => l[0]);
+          if (keys.length < 2) bad(w + ": менше двох міток");
+          if (!v.items || v.items.length < 3) bad(w + ": замало елементів");
+          (v.items || []).forEach((m, i) => {
+            if (!keys.includes(m.ans)) bad(`${w} елемент ${i + 1}: ans «${m.ans}» не серед міток`);
+            if (!m.why) bad(`${w} елемент ${i + 1}: немає why`);
+            if (!(m.subj || m.body)) bad(`${w} елемент ${i + 1}: порожній`);
+            if (v.view === "chat" && !m.from) bad(`${w} елемент ${i + 1}: у чаті потрібен from`);
+          });
+          if (!T.sim.judge(p, new Map((v.items || []).map((m, i) => [i, m.ans])))) bad(w + ": правильні мітки не зараховуються");
+        }
+        if (v.sim === "color") {
+          if (!/^#[0-9A-Fa-f]{6}$/.test(v.target || "")) bad(w + ": target має бути #RRGGBB");
+          else {
+            const t = [1, 3, 5].map((k) => parseInt(v.target.slice(k, k + 2), 16));
+            if (!T.sim.judge(p, t)) bad(w + ": точний колір не зараховується");
+            if (T.sim.judge(p, [128, 128, 128]) && v.mode !== "hex") bad(w + ": стартовий сірий уже зараховується");
+          }
+          if (v.mode && !["rgb", "hex"].includes(v.mode)) bad(w + ": mode має бути rgb або hex");
+        }
+        if (v.sim === "tween") {
+          if (!(v.frames >= 2 && v.frames <= 40)) bad(w + ": frames 2–40");
+          (v.goals || []).forEach((g) => { if (!(g.f >= 1 && g.f <= v.frames)) bad(`${w}: ціль на кадрі ${g.f} поза шкалою`); if ((g.x !== undefined && (g.x < 10 || g.x > 290)) || (g.y !== undefined && (g.y < 10 || g.y > 190))) bad(w + ": ціль поза сценою"); });
+          const st = { x: 40, y: 100, s: 40, rot: 0, op: 255, ...v.start };
+          if (T.sim.judge(p, { 1: st })) bad(w + ": стартове положення вже зараховується");
+          const keys = { 1: { ...st } }; (v.goals || []).forEach((g) => { keys[g.f] = { ...(keys[g.f] || st), ...g }; delete keys[g.f].f; });
+          if (!T.sim.judge(p, keys)) bad(w + ": ключові кадри з цілей не зараховуються");
+        }
         if (v.sim === "files") {
           if (!v.goals || !v.goals.length) bad(w + ": немає цілей");
           v.goals.forEach((g) => { if (!g.t) bad(w + ": ціль без тексту"); if (!["dir", "has", "not", "empty", "bin", "restored", "sel"].some((k) => k in g)) bad(w + ": ціль без умови"); });

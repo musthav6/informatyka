@@ -76,6 +76,9 @@ async function solve(p, tag, id, shots) {
     return cands.find((v) => {
       if (v.type === "sort") return dom(".srow", (e) => e.dataset.t) === v.items.map((i) => i[0]).sort().join("|");
       if (v.type === "order") return dom(".oitem", (e) => e.dataset.t) === v.items.slice().sort().join("|");
+      if (v.sim === "feed") return dom(".fd-item", (e) => (e.querySelector(".fd-title") || e.querySelector(".fd-who b")).textContent) === v.items.map((m) => v.view === "chat" ? m.from : m.subj).sort().join("|");
+      if (v.sim === "color") return document.querySelector(".cl-code").dataset.code === v.target.toUpperCase();
+      if (v.sim === "tween") return document.querySelectorAll(".tw-cell").length === v.frames && document.querySelector(".tw-obj text").textContent === v.obj;
       if (v.sim === "inbox") return dom(".ib-row .ib-meta span", (e) => e.textContent) === v.mails.map((m) => m.subj).sort().join("|");
       if (v.type === "spot") return true;
       if (!v.type) return dom("#opts .opt", (e) => e.dataset.v) === QZ.parseVariant(v).opts.slice().sort().join("|") || QZ.parseVariant(v).fixed;
@@ -100,6 +103,37 @@ async function solve(p, tag, id, shots) {
       if (await p.$(".ib-link")) await p.click(".ib-link");
       if (shots && !(await p.$(".ib-row")) && m.phish) { await p.screenshot({ path: `${OUT}/${tag}-${id}-mail.png` }); shots = false; }
       await p.click(m.phish ? ".ib-btns .ib-ph" : ".ib-btns .btn:not(.ib-ph)");
+    }
+  }
+  else if (v.sim === "feed") {
+    for (const card of await p.$$(".fd-item")) {
+      const m = v.items[+(await card.getAttribute("data-i"))], lab = v.labels.find((l) => l[0] === m.ans)[1];
+      for (const b of await card.$$(".fd-b")) if ((await b.textContent()) === lab) { await b.click(); break; }
+    }
+  }
+  else if (v.sim === "color") {
+    const t = [1, 3, 5].map((k) => parseInt(v.target.slice(k, k + 2), 16));
+    if (v.mode === "hex") await p.fill(".cl-hexrow input", v.target.slice(1).toLowerCase());   // без «#» — рушій додасть сам
+    else { const nums = await p.$$(".cl-row input[type=number]"); for (let k = 0; k < 3; k++) await nums[k].fill(String(t[k])); }
+  }
+  else if (v.sim === "tween") {
+    const st = { x: 40, y: 100, s: 40, rot: 0, op: 255, ...v.start };
+    for (const g of v.goals) {
+      await p.click(`.tw-cell[data-f="${g.f}"]`);
+      for (const [k, i] of [["s", 0], ["rot", 1], ["op", 2]]) if (g[k] !== undefined) {
+        const rows = await p.$$(".tw-row"); const names = await Promise.all(rows.map((r) => r.$eval(".tw-n", (e) => e.textContent)));
+        const row = rows[names.findIndex((n) => n.startsWith({ s: "Розмір", rot: "Кут", op: "Щільність" }[k]))];
+        await (await row.$("input[type=number]")).fill(String(g[k])); await (await row.$("input[type=number]")).dispatchEvent("change");
+      }
+      if (g.x !== undefined) {
+        await p.locator("svg.tw-stage").scrollIntoViewIfNeeded();
+        const [from, to] = await p.evaluate((g) => {
+          const svg = document.querySelector("svg.tw-stage"), m = svg.getScreenCTM(), o = document.querySelector(".tw-obj").transform.baseVal.consolidate().matrix;
+          const tr = (x, y) => { const q = new DOMPoint(x, y).matrixTransform(m); return [q.x, q.y]; };
+          return [tr(o.e, o.f), tr(g.x, g.y)];
+        }, g);
+        await p.mouse.move(from[0], from[1]); await p.mouse.down(); await p.mouse.move(to[0], to[1], { steps: 8 }); await p.mouse.up();
+      }
     }
   }
   else if (v.sim === "nodes") {

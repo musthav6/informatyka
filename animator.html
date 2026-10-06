@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Аніматор Ліцею</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css?v=202610061900">
+<link rel="stylesheet" href="assets/animator.css?v=202610061900">
+</head>
+<body class="an-page">
+<div class="an">
+  <!-- Верхня панель -->
+  <header class="an-top" id="anTop">
+    <a href="index.html" class="link an-home" id="anBack" title="На головну">←</a>
+    <span class="an-logo" aria-hidden="true">🎬</span>
+    <div class="an-name">
+      <span class="small muted">Аніматор Ліцею</span>
+      <input type="text" id="anName" maxlength="60" aria-label="Назва проєкту" autocomplete="off" spellcheck="false">
+    </div>
+    <div class="an-topbtns">
+      <button class="an-tb" id="anNew" type="button">➕ Новий проєкт</button>
+      <button class="an-tb" id="anSave" type="button">💾 Зберегти</button>
+      <button class="an-tb" id="anOpen" type="button">📂 Мої проєкти</button>
+      <button class="an-tb" id="anGif" type="button">🎞️ Експорт у GIF</button>
+      <button class="an-tb" id="anHelp" type="button">❓ Як це працює</button>
+    </div>
+  </header>
+
+  <!-- Панель інструментів -->
+  <nav class="an-tools" id="anTools" aria-label="Панель інструментів"></nav>
+  <div class="an-emoji" id="anEmoji" hidden></div>
+
+  <!-- Робоче поле -->
+  <main class="an-stagewrap">
+    <div class="an-stagebox" id="anStageBox">
+      <svg id="anStage" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Робоче поле"></svg>
+    </div>
+    <p class="an-status" id="anStatus" role="status"></p>
+  </main>
+
+  <!-- Шари -->
+  <section class="an-layers" id="anLayers" aria-label="Шари">
+    <div class="an-ltabs" id="anLTabs"></div>
+    <div class="an-linfo">
+      <span id="anLDesc" class="small"></span>
+      <span class="an-dyn" id="anDyn" hidden>
+        <label>Напрям <select id="anDynDir">
+          <option value="left">← ліворуч</option><option value="right">→ праворуч</option>
+          <option value="up">↑ угору</option><option value="down">↓ донизу</option>
+        </select></label>
+        <label>Зміщення за 1 кадр <input type="number" id="anDynStep" min="0" max="50" inputmode="numeric"> пікс.</label>
+      </span>
+    </div>
+  </section>
+
+  <!-- Програвач і шкала кадрів -->
+  <section class="an-timeline" aria-label="Шкала кадрів">
+    <div class="an-play" id="anPlayBox">
+      <button class="an-pbtn" id="anFirst" type="button" title="На перший кадр">⏮</button>
+      <button class="an-pbtn" id="anPrev" type="button" title="Попередній кадр (←)">◀</button>
+      <button class="an-pbtn big" id="anPlay" type="button" title="Відтворити / Пауза (пропуск)">▶</button>
+      <button class="an-pbtn" id="anNext" type="button" title="Наступний кадр (→)">▶︎|</button>
+      <label class="an-chk"><input type="checkbox" id="anLoop"> Зациклити</label>
+      <label class="an-num">Частота <input type="number" id="anFps" min="1" max="30" inputmode="numeric"> кадрів/с</label>
+      <label class="an-num">Кадрів <input type="number" id="anFrames" min="1" max="240" inputmode="numeric"></label>
+      <span class="small muted" id="anTime"></span>
+    </div>
+    <div class="an-cells" id="anCells"></div>
+    <p class="small muted an-legend">◆ — ключовий кадр вибраного об'єкта · • — ключові кадри інших об'єктів</p>
+  </section>
+
+  <!-- Колірна палітра й параметри -->
+  <aside class="an-side">
+    <details class="an-panel" id="anPalWrap" open>
+      <summary>Колірна палітра</summary>
+      <div class="an-pal">
+        <div class="an-swatches">
+          <button type="button" class="an-sw" id="swStroke" data-t="stroke"><span class="an-swc ring"></span>Штрих</button>
+          <button type="button" class="an-swap" id="swSwap" title="Поміняти кольори місцями">⇄</button>
+          <button type="button" class="an-sw" id="swFill" data-t="fill"><span class="an-swc"></span>Заповнення</button>
+        </div>
+        <p class="small muted an-palnote" id="anPalNote"></p>
+        <div class="an-basic" id="anBasic"></div>
+        <label class="an-hex">Код кольору <input type="text" id="anHex" maxlength="7" autocomplete="off" spellcheck="false" placeholder="#RRGGBB"></label>
+        <div class="an-rgb" id="anRgb"></div>
+        <label class="an-row an-row-op"><b>Щільність</b><input type="range" id="anOp" min="0" max="255"><input type="number" id="anOpN" min="0" max="255" inputmode="numeric"></label>
+        <p class="small muted" style="margin:0">Щільність: 0 — повністю прозоро, 255 — повністю непрозоро.</p>
+      </div>
+    </details>
+    <details class="an-panel" id="anParWrap" open>
+      <summary>Параметри</summary>
+      <div class="an-par" id="anPar"></div>
+    </details>
+  </aside>
+</div>
+
+<!-- Новий проєкт -->
+<dialog class="an-dlg" id="dlgNew">
+  <form method="dialog" id="newForm">
+    <h2>Новий проєкт</h2>
+    <label>Назва <input type="text" id="nName" maxlength="60" required></label>
+    <label>Розмір кадру <select id="nSize">
+      <option value="640x360">640 × 360 (широкий, 16 : 9)</option>
+      <option value="640x480">640 × 480 (4 : 3)</option>
+      <option value="480x360">480 × 360 (4 : 3, менший)</option>
+      <option value="400x400">400 × 400 (квадрат)</option>
+      <option value="360x640">360 × 640 (вертикальний, як на телефоні)</option>
+    </select></label>
+    <label>Частота кадрів, кадрів/с <input type="number" id="nFps" min="1" max="30" value="12" inputmode="numeric"></label>
+    <label>Кількість кадрів <input type="number" id="nFrames" min="1" max="240" value="24" inputmode="numeric"></label>
+    <label class="an-bgrow">Колір тла <input type="color" id="nBg" value="#cfeaff"></label>
+    <div class="an-dlgbtns"><button class="btn" value="ok" id="nOk">Створити</button><button class="btn ghost" value="cancel" formnovalidate>Скасувати</button></div>
+  </form>
+</dialog>
+
+<!-- Мої проєкти -->
+<dialog class="an-dlg" id="dlgOpen">
+  <form method="dialog">
+    <h2>Мої проєкти</h2>
+    <p class="small muted" style="margin:0">Проєкти зберігаються в цьому браузері на цьому пристрої. Щоб перенести на інший пристрій, завантаж файл.</p>
+    <ul class="an-plist" id="pList"></ul>
+    <div class="an-dlgbtns">
+      <button class="btn ghost small-btn" type="button" id="pDemo">🎞️ Відкрити приклад</button>
+      <button class="btn ghost small-btn" type="button" id="pDown">⬇️ Завантажити файл</button>
+      <label class="btn ghost small-btn an-file">⬆️ Відкрити файл<input type="file" id="pUp" accept=".json,application/json" hidden></label>
+      <button class="btn small-btn" value="close">Закрити</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Експорт -->
+<dialog class="an-dlg" id="dlgGif">
+  <form method="dialog">
+    <h2>Експорт у GIF</h2>
+    <p id="gifMsg" style="margin:0"></p>
+    <progress id="gifProg" max="1" value="0"></progress>
+    <div class="an-dlgbtns"><a class="btn" id="gifLink" hidden download>⬇️ Завантажити GIF</a><button class="btn ghost" value="close">Закрити</button></div>
+  </form>
+</dialog>
+
+<!-- Довідка -->
+<dialog class="an-dlg" id="dlgHelp">
+  <form method="dialog">
+    <h2>Як це працює</h2>
+    <ol class="an-help">
+      <li><b>Шари.</b> «Статичне тло» — нерухоме; «Динамічне тло» прокручується; «Анімація» — те, що рухається й змінюється; «Передній план» — попереду всього. Малюєш на тому шарі, який вибрано.</li>
+      <li><b>Малюй.</b> Вибери інструмент (Прямокутник, Еліпс, Трикутник, Лінія, Текст, Малюнок) і проведи по робочому полю або просто торкнись його.</li>
+      <li><b>Колір.</b> У палітрі вибери «Штрих» (контур) або «Заповнення», потім колір: зразок, код HEX або повзунки R, G, B. Щільність робить об'єкт прозорим. Колір отримують нові об'єкти; щоб перефарбувати наявний, торкнись його «Заповненням» або вибери «Вибором» і зміни колір.</li>
+      <li><b>Змінюй.</b> Інструмент «Вибір»: тягни об'єкт, кутові маркери змінюють розмір, круглий маркер угорі — кут. Точні числа — на панелі «Параметри».</li>
+      <li><b>Метод ключових кадрів.</b> На шарі «Анімація» вибери об'єкт → перейди на інший кадр шкали → зміни положення, розмір, кут, колір чи щільність. У цьому кадрі з'явиться ключовий кадр ◆, а проміжні кадри редактор обчислить сам.</li>
+      <li><b>Ефекти.</b> «Неперервне обертання» крутить об'єкт на задану кількість градусів у кожному кадрі.</li>
+      <li><b>Дивись.</b> ▶ — відтворити, «Зациклити» — повторювати без кінця. Частота кадрів — скільки кадрів показується за секунду.</li>
+      <li><b>Зберігай.</b> Проєкт зберігається сам у цьому браузері. «Експорт у GIF» — готовий мультфільм файлом, його можна надіслати вчителеві.</li>
+    </ol>
+    <p class="small muted" style="margin:0">Клавіші: ← → — кадри, пропуск — відтворити, Delete — видалити, Ctrl + Z — скасувати, Ctrl + Y — повторити.</p>
+    <div class="an-dlgbtns"><button class="btn" value="close">Зрозуміло</button></div>
+  </form>
+</dialog>
+
+<div class="an-toast" id="anToast" role="status" hidden></div>
+<script src="assets/animator.js?v=202610061900"></script>
+<script src="assets/eggs.js?v=202610061900"></script>
+</body>
+</html>

@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=202610061613">
+<link rel="stylesheet" href="assets/style.css?v=202610061900">
 </head>
 <body>
 <div class="wrap">
@@ -37,19 +37,22 @@
       </div>
     </header>
     <section class="card">
-      <h2 class="sec-title"><span class="sec-ico" aria-hidden="true">📘</span>Теорія коротко</h2>
+      <h2 class="sec-title"><span class="sec-ico" aria-hidden="true">📘</span><span id="shortTitle">Теорія коротко</span></h2>
       <div class="defs" id="defs"></div>
+      <div class="brief" id="brief" hidden></div>
       <div id="keyWrap">
         <p class="keyhead">Запам'ятай</p>
         <ul class="key" id="key"></ul>
       </div>
     </section>
     <details class="card notes" id="notesWrap" hidden>
-      <summary><h2 class="sec-title"><span class="sec-ico" aria-hidden="true">📖</span>Повний конспект<span class="ntoggle"></span></h2></summary>
+      <summary><h2 class="sec-title"><span class="sec-ico" aria-hidden="true">📖</span><span id="fullTitle">Повний конспект</span><span class="ntoggle"></span></h2></summary>
+      <p class="pluslegend" id="plusLegend" hidden>Жовті плашки <span class="plusb">⭐ для 12 балів</span> — додаткові визначення: хто хоче 12, виписує й ці.</p>
       <div class="nbody" id="notes"></div>
     </details>
     <section class="card">
       <h2 class="sec-title"><span class="sec-ico" aria-hidden="true">🚀</span>Практика</h2>
+      <div class="list" id="toolActs" hidden></div>
       <div class="gate" id="gate" hidden>
         <p style="margin:0">🔒 Щоб почати, введи код уроку — його скаже вчитель.</p>
         <div class="unlock"><input type="text" id="gateCode" placeholder="Код уроку" autocomplete="off" autocapitalize="off" spellcheck="false"><button class="btn" id="gateBtn">Відкрити</button></div>
@@ -60,13 +63,13 @@
     <p class="small" style="margin:0"><a href="qr.html" id="qrLink" class="link">QR-код цього уроку для проєктора</a></p>
   </div>
 </div>
-<script src="config.js?v=202610061613"></script>
-<script src="assets/engine.js?v=202610061613"></script>
-<script src="lessons.js?v=202610061613"></script>
-<script src="tests/index.js?v=202610061613"></script>
-<script src="practice/index.js?v=202610061613"></script>
-<script src="assets/site.js?v=202610061613"></script>
-<script src="assets/eggs.js?v=202610061613"></script>
+<script src="config.js?v=202610061900"></script>
+<script src="assets/engine.js?v=202610061900"></script>
+<script src="lessons.js?v=202610061900"></script>
+<script src="tests/index.js?v=202610061900"></script>
+<script src="practice/index.js?v=202610061900"></script>
+<script src="assets/site.js?v=202610061900"></script>
+<script src="assets/eggs.js?v=202610061900"></script>
 <script>SITE.ready().then(SITE.renderIndex);</script>
 </body>
 </html>
