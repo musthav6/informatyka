@@ -73,7 +73,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 @media (max-width:480px){.row2{grid-template-columns:1fr}}
 
 /* ---------- перемикачі (класи, Комп'ютер/Телефон) ---------- */
-.tabs{display:inline-flex;gap:4px;flex-wrap:wrap;padding:4px;border-radius:999px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);align-self:flex-start}
+.tabs{display:inline-flex;gap:4px;flex-wrap:wrap;padding:4px;border-radius:24px;background:var(--surface);border:1px solid var(--line);box-shadow:var(--shadow);align-self:flex-start}
 .tabs button{font:inherit;font-weight:600;font-size:15px;padding:8px 16px;border-radius:999px;border:0;background:transparent;color:var(--muted);cursor:pointer;transition:background .15s,color .15s}
 .tabs button:hover{color:var(--fg)}
 .tabs button.on{background:var(--grad);color:#fff;box-shadow:0 4px 12px color-mix(in srgb,var(--accent) 30%,transparent)}

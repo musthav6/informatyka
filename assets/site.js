@@ -176,7 +176,9 @@
     if (p.tool && !$("pTool")) { const link = actLink({ tool: p.tool }); if (link) { link.id = "pTool"; $("pTabs").before(link); } }
 
     const modes = Object.keys(p.modes);
-    let mode = store.get("prac:mode", null);
+    // first — вкладка за замовчуванням саме цієї практичної (вибір запам'ятовується окремо для неї)
+    const modeKey = p.first ? `prac:${p.id}:mode` : "prac:mode";
+    let mode = store.get(modeKey, p.first || null);
     if (!modes.includes(mode)) mode = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && modes.includes("phone") ? "phone" : modes[0];
     const doneKey = () => `prac:${p.id}:${mode}`;
 
@@ -184,7 +186,7 @@
       const tabs = $("pTabs"); tabs.innerHTML = ""; tabs.hidden = modes.length < 2;
       modes.forEach((m) => {
         const b = el("button", m === mode ? "on" : "", p.modes[m].label);
-        b.onclick = () => { mode = m; store.set("prac:mode", m); draw(); };
+        b.onclick = () => { mode = m; store.set(modeKey, m); draw(); };
         tabs.appendChild(b);
       });
       const M = p.modes[mode];
