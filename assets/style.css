@@ -250,6 +250,26 @@ details.review summary{cursor:pointer;font-weight:600}
 .step.done .n{background:var(--pass);border-color:var(--pass);color:#fff;font-size:0}
 .step.done .n::after{content:"✓";font-size:15px}
 .step input:focus-visible + .n{outline:3px solid var(--accent);outline-offset:2px}
+.step .stext{flex:1;min-width:0}
+.step-extra{margin:6px 0 0 56px;display:flex;flex-direction:column;gap:6px}
+.step .how{margin:0;padding-left:20px;font-size:15px;color:var(--fg);display:flex;flex-direction:column;gap:3px}
+.step .how li::marker{color:var(--muted);font-size:13px}
+details.tip{border-radius:12px;background:var(--accent-soft);color:var(--accent-ink);font-size:15px;padding:6px 12px}
+details.tip summary{cursor:pointer;font-weight:600;font-size:14px}
+details.tip p{margin:6px 0 2px}
+code.fname{font-family:ui-monospace,Consolas,"Cascadia Mono",monospace;font-size:.92em;background:var(--surface-2);border:1px solid var(--line-2);border-radius:6px;padding:0 5px;white-space:nowrap;color:var(--fg)}
+.keys{white-space:nowrap}
+figure.illus{margin:4px 0;max-width:420px}
+figure.illus svg{display:block;width:100%;height:auto;font-family:var(--body)}
+details.prep{border:1.5px dashed var(--line-2);border-radius:14px;padding:10px 14px;background:var(--surface-2)}
+details.prep > summary{cursor:pointer;font-weight:600}
+.prep-item{margin-top:10px}
+.prep-item p{margin:0}
+.qa-list{display:flex;flex-direction:column;gap:8px}
+details.qa{border:1px solid var(--line);border-radius:12px;background:var(--surface);padding:10px 14px}
+details.qa > summary{cursor:pointer;font-weight:600}
+.qa-body p{margin:8px 0 0}
+@media (max-width:520px){.step-extra{margin-left:8px}}
 .prog{margin:0;font-weight:600;color:var(--muted)}
 .prog.full{color:var(--pass)}
 table.t{border-collapse:collapse;width:100%;font-size:15px}
@@ -598,3 +618,6 @@ svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;tou
 .tw-cell.cur{background:var(--accent);border-color:var(--accent);color:#fff}.tw-cell.cur .k{color:#fff}
 .tw-bar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center}
 .tw-bar .btn{align-self:auto}
+
+/* клавіші в текстах практичних — дрібніші за клавіші в тренажерах */
+.keys kbd{font-size:.85em;font-weight:600;min-width:0;padding:0 6px;border-width:1px;border-bottom-width:2px;border-radius:6px;background:var(--surface-2);line-height:1.5}

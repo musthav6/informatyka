@@ -171,6 +171,128 @@
     else showPractice(p);
   }
 
+  /* Розмітка в текстах практичних: `Пр1_Шевченко` → моноширинний «код», **слово** → жирне, [Ctrl + C] → клавіші ([Ctrl + Shift + ]] — клавіша «]»). */
+  function rich(text) {
+    const box = document.createDocumentFragment();
+    String(text).split(/(`[^`]+`|\*\*[^*]+\*\*|\[(?:[^\]]|\](?=\]))+\])/).forEach((part) => {
+      if (!part) return;
+      if (part[0] === "`") box.appendChild(el("code", "fname", part.slice(1, -1)));
+      else if (part.startsWith("**")) box.appendChild(el("b", "", part.slice(2, -2)));
+      else if (part[0] === "[" && part.length > 2) {
+        const k = el("span", "keys");
+        part.slice(1, -1).split(/\s*\+\s*/).forEach((key, i) => { if (i) k.append(" + "); k.appendChild(el("kbd", "", key)); });
+        box.appendChild(k);
+      } else box.append(part);
+    });
+    return box;
+  }
+  const richEl = (tag, cls, text) => { const e = el(tag, cls); e.appendChild(rich(text)); return e; };
+
+  /* Ілюстрації (SVG у кольорах теми). У даних: img: "disks" | "newfolder" | "name" | "save" */
+  const ILLUS = {
+    disks: `<svg viewBox="0 0 340 200" role="img" aria-label="Вікно «Цей ПК»: диск C: закреслено, диски D: і E: позначено як дозволені">
+      <rect x="1" y="1" width="338" height="198" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <rect x="1" y="1" width="338" height="30" rx="12" fill="var(--surface-2)"/><rect x="1" y="20" width="338" height="11" fill="var(--surface-2)"/>
+      <text x="14" y="21" font-size="13" font-weight="600" fill="var(--fg)">🖥 Цей ПК</text>
+      <text x="14" y="52" font-size="11" fill="var(--muted)">Пристрої та диски</text>
+      <g transform="translate(12,62)">
+        <rect width="100" height="74" rx="10" fill="var(--fail-soft)" stroke="var(--fail)" stroke-width="1.5"/>
+        <text x="50" y="28" text-anchor="middle" font-size="22">💽</text>
+        <line x1="32" y1="8" x2="68" y2="36" stroke="var(--fail)" stroke-width="3" stroke-linecap="round"/>
+        <line x1="68" y1="8" x2="32" y2="36" stroke="var(--fail)" stroke-width="3" stroke-linecap="round"/>
+        <text x="50" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Диск C:</text>
+        <text x="50" y="66" text-anchor="middle" font-size="14" font-weight="700" fill="var(--fail)">✕</text>
+        <text x="50" y="94" text-anchor="middle" font-size="11" font-weight="600" fill="var(--fail)">не сюди —</text>
+        <text x="50" y="108" text-anchor="middle" font-size="11" font-weight="600" fill="var(--fail)">тут Windows</text>
+      </g>
+      <g transform="translate(120,62)">
+        <rect width="100" height="74" rx="10" fill="var(--pass-soft)" stroke="var(--pass)" stroke-width="1.5"/>
+        <text x="50" y="28" text-anchor="middle" font-size="22">💽</text>
+        <text x="50" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Диск D:</text>
+        <text x="50" y="66" text-anchor="middle" font-size="14" font-weight="700" fill="var(--pass)">✓</text>
+        <text x="50" y="94" text-anchor="middle" font-size="11" font-weight="600" fill="var(--pass)">можна</text>
+      </g>
+      <g transform="translate(228,62)">
+        <rect width="100" height="74" rx="10" fill="var(--pass-soft)" stroke="var(--pass)" stroke-width="1.5"/>
+        <text x="50" y="28" text-anchor="middle" font-size="22">💽</text>
+        <text x="50" y="52" text-anchor="middle" font-size="12" font-weight="700" fill="var(--fg)">Диск E:</text>
+        <text x="50" y="66" text-anchor="middle" font-size="14" font-weight="700" fill="var(--pass)">✓</text>
+        <text x="50" y="94" text-anchor="middle" font-size="11" font-weight="600" fill="var(--pass)">теж можна</text>
+      </g>
+      <text x="170" y="190" text-anchor="middle" font-size="11" fill="var(--muted)">Букви бувають різні (D:, E:, F:…). Головне — не C:</text>
+    </svg>`,
+    newfolder: `<svg viewBox="0 0 340 170" role="img" aria-label="Контекстне меню: Створити, потім Папку">
+      <rect x="1" y="1" width="338" height="168" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <text x="14" y="24" font-size="12" fill="var(--muted)">1. Правою кнопкою миші — на порожнє місце</text>
+      <path d="M40 40 l0 22 l6 -5 l4 9 l4 -2 l-4 -9 l8 0 z" fill="var(--fg)" stroke="var(--surface)" stroke-width="1"/>
+      <g transform="translate(58,48)">
+        <rect width="120" height="104" rx="8" fill="var(--surface-2)" stroke="var(--line-2)"/>
+        <text x="12" y="22" font-size="12" fill="var(--muted)">Вигляд</text>
+        <text x="12" y="44" font-size="12" fill="var(--muted)">Сортувати</text>
+        <rect x="4" y="54" width="112" height="24" rx="5" fill="var(--accent-soft)"/>
+        <text x="12" y="70" font-size="12" font-weight="700" fill="var(--accent-ink)">Створити</text>
+        <text x="104" y="70" font-size="12" fill="var(--accent-ink)">▸</text>
+        <text x="12" y="96" font-size="12" fill="var(--muted)">Властивості</text>
+      </g>
+      <g transform="translate(182,94)">
+        <rect width="140" height="58" rx="8" fill="var(--surface-2)" stroke="var(--line-2)"/>
+        <rect x="4" y="6" width="132" height="24" rx="5" fill="var(--accent-soft)"/>
+        <text x="12" y="22" font-size="12" font-weight="700" fill="var(--accent-ink)">📁 Папку</text>
+        <text x="12" y="48" font-size="12" fill="var(--muted)">📄 Текстовий документ</text>
+      </g>
+      <text x="182" y="80" font-size="12" fill="var(--muted)">2. Створити → Папку</text>
+    </svg>`,
+    name: `<svg viewBox="0 0 340 176" role="img" aria-label="Ім'я ПР1_Шевченко: номер роботи, знак підкреслення, твоє прізвище">
+      <rect x="1" y="1" width="338" height="174" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <g font-family="ui-monospace,Consolas,monospace" font-size="26" font-weight="700">
+        <rect x="24" y="22" width="70" height="44" rx="8" fill="var(--accent-soft)"/><text x="59" y="53" text-anchor="middle" fill="var(--accent-ink)">ПР1</text>
+        <rect x="100" y="22" width="34" height="44" rx="8" fill="var(--warn-soft)"/><text x="117" y="53" text-anchor="middle" fill="var(--warn)">_</text>
+        <rect x="140" y="22" width="176" height="44" rx="8" fill="var(--pass-soft)"/><text x="228" y="53" text-anchor="middle" fill="var(--pass)">Шевченко</text>
+      </g>
+      <g font-size="11" fill="var(--muted)" text-anchor="middle">
+        <text x="59" y="84">номер роботи</text><text x="117" y="84">знак</text><text x="117" y="97">«_»</text>
+        <text x="228" y="84">ТВОЄ прізвище,</text><text x="228" y="97">а не слово «Прізвище»</text>
+      </g>
+      <text x="14" y="130" font-size="12" fill="var(--fg)">Знак «_»:</text>
+      <g transform="translate(76,113)" font-size="12" font-weight="700" fill="var(--fg)">
+        <rect width="54" height="26" rx="5" fill="var(--surface-2)" stroke="var(--line-2)"/><text x="27" y="17" text-anchor="middle">Shift</text>
+        <text x="66" y="17" text-anchor="middle">+</text>
+        <rect x="78" width="30" height="26" rx="5" fill="var(--surface-2)" stroke="var(--line-2)"/><text x="93" y="12" text-anchor="middle" font-size="11">_</text><text x="93" y="23" text-anchor="middle" font-size="11">-</text>
+      </g>
+      <text x="194" y="130" font-size="11" fill="var(--muted)">клавіша праворуч від 0</text>
+      <text x="170" y="160" text-anchor="middle" font-size="11" fill="var(--muted)">Дефіс теж годиться: ПР1-Шевченко. Пробіли — ні.</text>
+    </svg>`,
+    save: `<svg viewBox="0 0 340 150" role="img" aria-label="Вікно «Зберегти як»: обрати папку, вписати ім'я, натиснути Зберегти">
+      <rect x="1" y="1" width="338" height="148" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <text x="14" y="22" font-size="13" font-weight="600" fill="var(--fg)">Зберегти як</text>
+      <rect x="14" y="32" width="312" height="26" rx="6" fill="var(--accent-soft)"/>
+      <text x="22" y="49" font-size="11" fill="var(--accent-ink)">① Папка: Цей ПК › D: › 5-Б › ПР1_Шевченко</text>
+      <text x="14" y="80" font-size="11" fill="var(--muted)">Ім'я файлу:</text>
+      <rect x="84" y="66" width="242" height="22" rx="5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+      <text x="92" y="81" font-size="12" font-family="ui-monospace,Consolas,monospace" fill="var(--fg)">② Афіша_Шевченко</text>
+      <text x="14" y="108" font-size="11" fill="var(--muted)">Тип файлу: залиш, як є</text>
+      <rect x="236" y="116" width="90" height="24" rx="6" fill="var(--accent)"/>
+      <text x="281" y="132" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">③ Зберегти</text>
+    </svg>`
+  };
+  const illus = (key) => { if (!ILLUS[key]) return null; const f = el("figure", "illus"); f.innerHTML = ILLUS[key]; return f; };
+
+  // Довідник типових проблем (practice/index.js → PRACTICE_HELP). В даних: "disk" або [питання, відповідь(і), img?]
+  const helpItem = (h) => {
+    if (typeof h === "string") return (window.PRACTICE_HELP || {})[h] || null;
+    if (Array.isArray(h)) return { q: h[0], a: h[1], img: h[2] };
+    return h;
+  };
+  function helpBlock(item, cls) {
+    const d = el("details", cls || "qa");
+    d.appendChild(richEl("summary", "", item.q));
+    const body = el("div", "qa-body");
+    (Array.isArray(item.a) ? item.a : [item.a]).forEach((t) => body.appendChild(richEl("p", "", t)));
+    const fig = item.img && illus(item.img); if (fig) body.appendChild(fig);
+    d.appendChild(body);
+    return d;
+  }
+
   function showPractice(p) {
     $("pCard").hidden = false;
     if (p.tool && !$("pTool")) { const link = actLink({ tool: p.tool }); if (link) { link.id = "pTool"; $("pTabs").before(link); } }
@@ -180,7 +302,8 @@
     const modeKey = p.first ? `prac:${p.id}:mode` : "prac:mode";
     let mode = store.get(modeKey, p.first || null);
     if (!modes.includes(mode)) mode = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && modes.includes("phone") ? "phone" : modes[0];
-    const doneKey = () => `prac:${p.id}:${mode}`;
+    // :2 — кроки переписано (жовтень 2026), старі галочки не підходять за номерами
+    const doneKey = () => `prac:${p.id}:${mode}:2`;
 
     const draw = () => {
       const tabs = $("pTabs"); tabs.innerHTML = ""; tabs.hidden = modes.length < 2;
@@ -190,10 +313,22 @@
         tabs.appendChild(b);
       });
       const M = p.modes[mode];
-      $("pNote").textContent = M.note || ""; $("pNote").hidden = !M.note;
+      const note = $("pNote"); note.innerHTML = ""; if (M.note) note.appendChild(rich(M.note)); note.hidden = !M.note;
+
+      // «Перш ніж почати» — що означають слова з завдання
+      const prep = $("pPrep"); prep.innerHTML = "";
+      (M.prep || []).forEach((it) => {
+        const box = el("div", "prep-item");
+        box.appendChild(richEl("p", "", typeof it === "string" ? it : it.t));
+        const fig = it.img && illus(it.img); if (fig) box.appendChild(fig);
+        prep.appendChild(box);
+      });
+      $("pPrepWrap").hidden = !(M.prep && M.prep.length);
+
       const done = store.get(doneKey(), []);
       const ol = $("pSteps"); ol.innerHTML = "";
-      M.steps.forEach((s, i) => {
+      M.steps.forEach((raw, i) => {
+        const s = typeof raw === "string" ? { t: raw } : raw;
         const li = el("li", "step" + (done.includes(i) ? " done" : ""));
         const lab = el("label");
         const cb = el("input"); cb.type = "checkbox"; cb.checked = done.includes(i);
@@ -202,8 +337,21 @@
           cb.checked ? cur.add(i) : cur.delete(i);
           store.set(doneKey(), [...cur]); li.classList.toggle("done", cb.checked); progress();
         };
-        lab.append(cb, el("span", "n", String(i + 1)), el("span", "", s));
-        li.appendChild(lab); ol.appendChild(li);
+        lab.append(cb, el("span", "n", String(i + 1)), richEl("span", "stext", s.t));
+        li.appendChild(lab);
+        // Деталі — поза <label>, щоб клік по підказці не ставив галочку
+        if (s.how || s.hint || s.img) {
+          const ex = el("div", "step-extra");
+          if (s.how) { const how = el("ol", "how"); s.how.forEach((h) => how.appendChild(richEl("li", "", h))); ex.appendChild(how); }
+          const fig = s.img && illus(s.img); if (fig) ex.appendChild(fig);
+          if (s.hint) {
+            const d = el("details", "tip"); d.appendChild(el("summary", "", "💡 Підказка"));
+            (Array.isArray(s.hint) ? s.hint : [s.hint]).forEach((t) => d.appendChild(richEl("p", "", t)));
+            ex.appendChild(d);
+          }
+          li.appendChild(ex);
+        }
+        ol.appendChild(li);
       });
       const progress = () => {
         const n = store.get(doneKey(), []).length, all = M.steps.length;
@@ -211,12 +359,17 @@
         $("pProg").className = "prog" + (n === all ? " full" : "");
       };
       progress();
+
+      // «Якщо щось не виходить»
+      const help = $("pHelp"); help.innerHTML = "";
+      (M.trouble || []).map(helpItem).filter(Boolean).forEach((it) => help.appendChild(helpBlock(it)));
+      $("pHelpWrap").hidden = !help.children.length;
     };
     draw();
 
     const tb = $("pCrit"); tb.innerHTML = "";
     let sum = 0;
-    (p.criteria || []).forEach(([c, b]) => { const tr = el("tr"); tr.append(el("td", "", c), el("td", "pts", String(b))); tb.appendChild(tr); sum += b; });
+    (p.criteria || []).forEach(([c, b]) => { const tr = el("tr"); tr.append(richEl("td", "", c), el("td", "pts", String(b))); tb.appendChild(tr); sum += b; });
     const tr = el("tr", "sum"); tr.append(el("td", "", "Разом"), el("td", "pts", String(sum))); tb.appendChild(tr);
     $("pCritWrap").hidden = !(p.criteria && p.criteria.length);
 

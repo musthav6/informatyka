@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=202610081149">
+<link rel="stylesheet" href="assets/style.css?v=202610120910">
 </head>
 <body>
 <div class="wrap">
@@ -28,8 +28,18 @@
     <p class="info" id="pSafety" style="margin:0">Перед роботою — інструктаж з безпеки життєдіяльності: сиди рівно, не торкайся кабелів і задньої панелі, не їж біля комп'ютера, про будь-яку несправність одразу повідом учителя.</p>
     <div class="tabs" id="pTabs"></div>
     <p class="hint" id="pNote" hidden style="margin:0"></p>
+    <details class="prep" id="pPrepWrap" open hidden>
+      <summary>📌 Перш ніж почати — що означають слова в завданні</summary>
+      <div id="pPrep"></div>
+    </details>
     <ol class="steps" id="pSteps"></ol>
     <p class="prog" id="pProg"></p>
+  </section>
+
+  <section class="card" id="pHelpWrap" hidden>
+    <h2 style="margin:0">🆘 Якщо щось не виходить</h2>
+    <p class="small" style="margin:0;color:var(--muted)">Натисни на свою проблему — з'явиться, що робити. Не допомогло — підніми руку.</p>
+    <div class="list qa-list" id="pHelp"></div>
   </section>
 
   <section class="card" id="pCritWrap" hidden>
@@ -42,13 +52,13 @@
     <div class="list" id="pCheck"></div>
   </section>
 </div>
-<script src="config.js?v=202610081149"></script>
-<script src="assets/engine.js?v=202610081149"></script>
-<script src="lessons.js?v=202610081149"></script>
-<script src="tests/index.js?v=202610081149"></script>
-<script src="practice/index.js?v=202610081149"></script>
-<script src="assets/site.js?v=202610081149"></script>
-<script src="assets/eggs.js?v=202610081149"></script>
+<script src="config.js?v=202610120910"></script>
+<script src="assets/engine.js?v=202610120910"></script>
+<script src="lessons.js?v=202610120910"></script>
+<script src="tests/index.js?v=202610120910"></script>
+<script src="practice/index.js?v=202610120910"></script>
+<script src="assets/site.js?v=202610120910"></script>
+<script src="assets/eggs.js?v=202610120910"></script>
 <script>SITE.ready().then(SITE.renderPractice);</script>
 </body>
 </html>
