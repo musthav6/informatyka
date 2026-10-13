@@ -139,7 +139,7 @@
     document.title = T.title;
     $("eyebrow").textContent = `Інформатика · ${T.grade} клас`;
     $("title").textContent = T.title;
-    $("about").textContent = `${N} запитань. ${T.minutes ? `Час — ${T.minutes} хв. ` : ""}Спроб: ${ATT}. ${INSTANT ? "Після кожної відповіді одразу видно, чи вона правильна." : "Результат буде видно наприкінці."}`;
+    $("about").textContent = `${N} запитань. ${T.minutes ? `Час — ${T.minutes} хв. ` : ""}${!T.sim && (CFG.Q_TIME_KINDS || ["train", "diag"]).includes(T.kind) && CFG.Q_SECONDS ? `На кожне запитання — ${CFG.Q_SECONDS} с${CFG.Q_SECONDS_TASK ? ` (на інтерактивне — ${CFG.Q_SECONDS_TASK} с)` : ""}. ` : ""}Спроб: ${ATT}. ${INSTANT ? "Після кожної відповіді одразу видно, чи вона правильна." : "Результат буде видно наприкінці."}`;
     $("topics").innerHTML = "";
     (T.topics || []).forEach((t) => { const li = document.createElement("li"); li.textContent = t; $("topics").appendChild(li); });
 
@@ -240,24 +240,59 @@
       $("quiz").hidden = false;
       setWatermark();
       $("rail").innerHTML = "<i></i>".repeat(N);
-      clearInterval(tick);
-      if (st.deadline) { tick = setInterval(updTimer, 1000); updTimer(); } else $("timer").textContent = "";
       show();
     }
     function updTimer() {
-      const left = Math.max(0, st.deadline - Date.now());
-      const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
-      $("timer").textContent = `${m}:${String(s).padStart(2, "0")}`;
-      $("timer").classList.toggle("low", left < 60000);
-      if (left <= 0) { clearInterval(tick); finishAttempt("Час вичерпано."); }
+      if (!st) { clearInterval(tick); return; }
+      const now = Date.now(), parts = [];
+      let low = false;
+      if (st.qDeadline && !st.checked) {
+        const ql = Math.max(0, st.qDeadline - now);
+        parts.push(`⏱ ${Math.ceil(ql / 1000)} с`); low = ql < 10000;
+        if (ql <= 0) { qTimeout(); return; }
+      }
+      if (st.deadline) {
+        const left = Math.max(0, st.deadline - now);
+        const m = Math.floor(left / 60000), s = Math.floor((left % 60000) / 1000);
+        parts.push(`${m}:${String(s).padStart(2, "0")}`); low = low || left < 60000;
+        if (left <= 0) { clearInterval(tick); finishAttempt("Час вичерпано."); return; }
+      }
+      $("timer").textContent = parts.join(" · ");
+      $("timer").classList.toggle("low", low);
     }
     const bonusQ = (b) => parseVariant(window.EGGS.bonus[b]);
     const isBonus = (sl) => !!(st && st.bonus && st.bonus.slot === sl && window.EGGS);
     const cur = () => { const sl = st.order[st.i]; return { sl, p: isBonus(sl) ? bonusQ(st.bonus.q) : parseVariant(T.slots[sl][st.vars[sl]]) }; };
 
+    /* Ліміт часу на одне запитання (проти «сфоткав → спитав ШІ»): CFG.Q_SECONDS для звичайних,
+       CFG.Q_SECONDS_TASK для інтерактивних; у симуляторах (sim: true) — без ліміту. */
+    const qLimit = (p) => {
+      if (T.sim || !(CFG.Q_TIME_KINDS || ["train", "diag"]).includes(T.kind)) return 0;
+      return ((p.task ? CFG.Q_SECONDS_TASK : CFG.Q_SECONDS) || 0) * 1000;
+    };
+    function qTimeout() {
+      if (!st || st.checked || $("quiz").hidden) return;
+      if (picked && typeof picked.stop === "function") picked.stop();
+      st.timeouts = (st.timeouts || 0) + 1;
+      record(false, null, true);
+      const box = $("opts"); box.classList.add("locked");
+      box.querySelectorAll("input,button,select").forEach((i) => (i.disabled = true));
+      const fb = $("fb"); fb.className = "fb no"; fb.innerHTML = "<b></b>";
+      fb.firstChild.textContent = "⏱ Час на це запитання вийшов — його зараховано як неправильне.";
+      fb.hidden = false;
+      $("next").textContent = st.i === N - 1 ? "Завершити" : "Далі"; $("next").disabled = false;
+      updTimer();
+    }
+
     function show() {
       if (st.checked) { advance(); return; }
       const { p } = cur();
+      // дедлайн запитання зберігається в стані — перезавантаження сторінки його не скидає
+      const lim = qLimit(p);
+      if (lim && !st.qDeadline) { st.qDeadline = Date.now() + lim; store.set(KEY_ACTIVE, st); }
+      if (!lim) st.qDeadline = 0;
+      clearInterval(tick);
+      if (st.deadline || st.qDeadline) { tick = setInterval(updTimer, 250); updTimer(); } else $("timer").textContent = "";
       picked = null;
       $("fb").hidden = true;
       $("next").textContent = "Відповісти"; $("next").disabled = true;
@@ -313,7 +348,7 @@
       const { sl } = cur();
       const a = burnt ? null : ans && typeof ans.text === "function" ? ans.text() : ans instanceof Set ? [...ans].join("; ") : ans;
       st.results.push({ sl, v: st.vars[sl], ok, a, b: isBonus(sl) ? st.bonus.q : undefined });
-      st.checked = true; store.set(KEY_ACTIVE, st);
+      st.checked = true; st.qDeadline = 0; store.set(KEY_ACTIVE, st);
     }
     function advance() {
       st.checked = false; st.i++;
@@ -389,7 +424,7 @@
       r.attempts.push(att); saveRec(st.cls, st.name, r);
       queueResult({
         ts: new Date().toISOString(), testId: T.id, test: T.title, kind: T.kind, cls: st.cls, name: st.name,
-        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : "", st.prev ? `👥 до цього з цього пристрою: ${st.prev}` : ""].filter(Boolean).join("; "),
+        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : "", st.timeouts ? `⏱ не встиг(ла): ${st.timeouts}` : "", st.prev ? `👥 до цього з цього пристрою: ${st.prev}` : ""].filter(Boolean).join("; "),
         wrong: st.results.filter((x) => !x.ok).map((x) => `${x.sl + 1}${x.a === null ? "(пропуск)" : ""}`).join(", ")
       });
       const who = { cls: st.cls, name: st.name };
