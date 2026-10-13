@@ -5,6 +5,7 @@
      { type: "keys",  q, keys: "Ctrl+C", alt: ["Ctrl+V", ...], x }                — натисни сполучення
      { type: "spot",  q, scene: "window|desktop|mail|ppt|share|network|word|pptshow|animator", target: "id" | [...], x } — знайди на картинці
      { type: "sim",   sim: "files|inbox|nodes|feed|color|tween", q, ..., x }      — симулятори
+     { type: "probe", scene: "files|slides|mail", ask: "...", q, x }             — «Знайди й впиши»: відповідь випадкова й схована (див. нижче)
        files: start {"Папка": {"файл.txt": "file"}}, goals [{t, dir|has|not|empty|sel: "Папка/файл.txt" | bin: "ім'я" | restored: "ім'я", at}]
        inbox: mails [{from, addr, subj, body ("текст [посилання](url)"), attach?, phish, why}]
        nodes: from [[x,y]...], to [[x,y]...] — полотно 300×300, допуск 20
@@ -770,5 +771,220 @@
     button: "Перевірити"
   };
 
-  window.TASKS = { sort, order, keys, spot, sim, SCENES, normCombo };
+  /* ================================================================ «ЗНАЙДИ Й ВПИШИ» (probe)
+     Відповідь схована всередині міні-вікна й генерується випадково для кожного учня: щоб її дізнатися,
+     треба відкрити папку / слайд / лист. Фото самого запитання ШІ не допоможе — у ньому відповіді немає.
+     Працює однаково на телефоні й на комп'ютері.
+     { type: "probe", scene: "files",  ask: "count",  folder: "Музика", q, x }   — скільки файлів у папці
+                                       ask: "ext",    file: "Гімн", exts: [...]  — розширення файлу
+                                       ask: "where",  file: "Розклад.docx"       — у якій папці лежить
+                                       ask: "find",   ext: "svg", folder?        — ім'я файлу з цим розширенням
+                                       ask: "pixels", file: "Фото.png"           — скільки пікселів (Властивості)
+                                       ask: "size",   file: "Реферат.docx"       — розмір у КБ (Властивості)
+     { type: "probe", scene: "slides", ask: "notes", slide: 3 | ask: "hidden", q, x }
+     { type: "probe", scene: "mail",   ask: "domain" | "attach" | "cc", q, x } */
+  const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const pick = (a) => a[Math.floor(Math.random() * a.length)];
+  const normAns = (s) => String(s == null ? "" : s).toLowerCase().replace(/[«»"'’ʼ`]/g, "").replace(/\s+/g, " ").trim().replace(/[.,;:!]+$/, "");
+  const digits = (s) => String(s).replace(/[\s ]/g, "").replace(/[^\d]/g, "");
+  const FOLDERS = ["Навчання", "Музика", "Фото", "Ігри", "Документи"];
+  const FILL = {
+    "Навчання": ["Твір.docx", "Урок5.pptx", "Задачі.docx", "Конспект.txt", "Вірш.docx", "Проєкт.pptx", "Словник.txt"],
+    "Музика": ["Пісня.mp3", "Гімн.mp3", "Колискова.wav", "Мелодія.ogg", "Ремікс.mp3", "Дзвінок.mp3", "Етюд.wav"],
+    "Фото": ["море.jpg", "кіт.png", "ліс.jpg", "клас.jpg", "схема.png", "гори.jpg", "сад.jpg"],
+    "Ігри": ["Шахи.exe", "Пазл.exe", "Рекорди.txt", "Налаштування.ini", "Карта.png"],
+    "Документи": ["Довідка.pdf", "Розклад.docx", "Список.xlsx", "Лист.txt", "Анкета.pdf", "Квитанція.pdf"],
+    "Малюнки": ["кіт.png", "логотип.svg", "сонце.jpg", "зірка.svg", "ялинка.png", "емблема.svg", "фон.bmp"],
+    "Для презентації": ["заставка.jpg", "пісня.mp3", "ролик.mp4", "фон.png", "оплески.wav", "кліп.mp4", "схема.png"]
+  };
+  const NAMES = { svg: ["логотип", "емблема", "значок", "герб", "стрілка"], mp4: ["ролик", "кліп", "екскурсія", "інтерв'ю"], png: ["скріншот", "схема", "діаграма"], mp3: ["пісня", "мелодія", "заставка"] };
+  const ICON = (n) => /\.(mp3|wav|ogg)$/i.test(n) ? "🎵" : /\.(jpg|png|bmp|svg)$/i.test(n) ? "🖼️" : /\.(mp4|avi)$/i.test(n) ? "🎬" : /\.(exe)$/i.test(n) ? "⚙️" : /\.(pptx)$/i.test(n) ? "📊" : /\.(xlsx)$/i.test(n) ? "📈" : "📄";
+  const fill = (folder, n, avoid) => shuffle((FILL[folder] || FILL["Документи"]).filter((f) => !avoid.some((a) => a.toLowerCase() === f.toLowerCase() || a.split(".")[0].toLowerCase() === f.split(".")[0].toLowerCase()))).slice(0, n);
+
+  function genFiles(v) {
+    const folders = (v.folders || FOLDERS).slice();
+    const tree = {}; folders.forEach((f) => (tree[f] = []));
+    const props = {};
+    let answer, accept;
+    const place = (folder, name, pr) => { tree[folder].push(name); if (pr) props[name] = pr; };
+    if (v.ask === "count") {
+      const n = rnd(2, 6); fill(v.folder, n, []).forEach((f) => place(v.folder, f));
+      while (tree[v.folder].length < n) place(v.folder, `Файл${tree[v.folder].length + 1}.txt`);
+      answer = String(n); accept = [answer];
+    } else if (v.ask === "ext") {
+      const ext = pick(v.exts), folder = v.folder || pick(folders), name = `${v.file}.${ext}`;
+      place(folder, name); answer = ext; accept = [ext, "." + ext];
+    } else if (v.ask === "where") {
+      const folder = pick(folders); place(folder, v.file); answer = folder; accept = [folder];
+    } else if (v.ask === "find") {
+      const folder = v.folder || pick(folders), base = pick(NAMES[v.ext] || ["файл"]), name = `${base}.${v.ext}`;
+      place(folder, name); answer = base; accept = [base, name];
+    } else if (v.ask === "pixels") {
+      const [w, h] = pick([[640, 480], [800, 600], [320, 240], [1024, 768], [500, 400], [600, 300], [400, 250], [300, 200]]);
+      const folder = v.folder || pick(folders); place(folder, v.file, { dims: `${w} × ${h} пікселів`, size: `${rnd(40, 900)} КБ` });
+      answer = String(w * h); accept = [answer];
+    } else if (v.ask === "size") {
+      const kb = rnd(12, 480), folder = v.folder || pick(folders); place(folder, v.file, { size: `${kb} КБ` });
+      answer = String(kb); accept = [answer];
+    }
+    // наповнювачі в інших папках (щоб папки не були порожні й не підказували відповідь)
+    folders.forEach((f) => {
+      if (!(v.ask === "count" && f === v.folder))
+        fill(f, rnd(2, 4), tree[f].concat([v.file || ""])).filter((x) => !(v.ask === "find" && x.toLowerCase().endsWith("." + v.ext))).forEach((x) => tree[f].push(x));
+      tree[f] = shuffle(tree[f]);
+    });
+    Object.keys(tree).forEach((f) => tree[f].forEach((n) => { if (!props[n]) props[n] = { size: `${rnd(3, 950)} КБ` }; }));
+    const numeric = ["count", "pixels", "size"].includes(v.ask);
+    return { tree, props, answer, accept, numeric };
+  }
+
+  function genSlides(v) {
+    const n = rnd(5, 8), titles = shuffle(["Вступ", "Мета", "Етапи", "Факти", "Цікаве", "Висновки", "Джерела", "Приклади", "Порівняння", "План"]).slice(0, n - 1);
+    const slides = [{ title: "Титульний слайд" }].concat(titles.map((t) => ({ title: t })));
+    let answer;
+    if (v.ask === "notes") {
+      const k = Math.min(v.slide || 3, n) - 1, num = rnd(12, 98);
+      slides.forEach((s, i) => (s.notes = i === k ? `Сказати, що в опитуванні взяли участь ${num} учнів.` : pick(["Привітатися.", "Говорити повільно.", "Показати фото.", "", "Запитати клас.", ""])));
+      answer = String(num);
+    } else {
+      const k = rnd(2, n); slides[k - 1].hidden = true; answer = String(k);
+    }
+    return { slides, answer, accept: [answer], numeric: true };
+  }
+
+  function genMail(v) {
+    const mails = [
+      { id: "school", from: "Класний керівник", addr: "klasna@lyceum2.vn.ua", subj: "Екскурсія в п'ятницю", body: "Добрий день! Нагадую про екскурсію в п'ятницю о 9:00." },
+      { id: "diia", from: "Дія", addr: "info@diia-gov-ua.info", subj: "Вам нараховано виплату", body: "Для отримання коштів перейдіть за посиланням: [diia.gov.ua/payment]" },
+      { id: "np", from: "Нова пошта", addr: "info@novaposhta.ua", subj: "Посилка прибула", body: "Ваша посилка чекає у відділенні № 12." },
+      { id: "friend", from: "Оля", addr: "olia.k@ukr.net", subj: "Домашка з математики", body: "Привіт! Скинь, будь ласка, номери задач на завтра." }
+    ];
+    let answer, accept, numeric = false;
+    if (v.ask === "domain") {
+      const fake = pick(["diia-gov.ua.verify-pay.com", "diia-ua.online", "dlia-gov.com", "diia.gov.ua.bonus-pay.net", "diia-viplata.site"]);
+      mails[1].href = "https://" + fake + "/payment"; answer = fake; accept = [fake, "www." + fake];
+    } else if (v.ask === "attach") {
+      const sizes = Array.from({ length: rnd(2, 4) }, () => rnd(2, 9));
+      mails[0].attach = sizes.map((s, i) => [`фото${i + 1}.jpg`, `${s} МБ`]);
+      mails[0].body += " Фото з минулої поїздки — у вкладеннях.";
+      answer = String(sizes.reduce((a, b) => a + b, 0)); accept = [answer]; numeric = true;
+    } else if (v.ask === "cc") {
+      const n = rnd(2, 5), people = shuffle(["mama.ivanenko@gmail.com", "tato.koval@ukr.net", "o.shevchuk@gmail.com", "batky.melnyk@ukr.net", "i.bondar@gmail.com", "zavuch@lyceum2.vn.ua"]).slice(0, n);
+      mails[0].cc = people; answer = String(n); accept = [answer]; numeric = true;
+    }
+    return { mails: shuffle(mails), answer, accept, numeric };
+  }
+
+  const PROBE_CACHE = new WeakMap();   // той самий варіант у межах сторінки → той самий згенерований вміст
+  const probe = {
+    parse(v) {
+      let scn = PROBE_CACHE.get(v);
+      if (!scn) { scn = v.scene === "slides" ? genSlides(v) : v.scene === "mail" ? genMail(v) : genFiles(v); PROBE_CACHE.set(v, scn); }
+      const hint = v.hint || (v.scene === "files" ? "Відкривай папки й файли, натискаючи на них. Знайшов — впиши відповідь у поле внизу."
+        : v.scene === "slides" ? "Натисни «Відкрити презентацію», переглянь слайди й упиши відповідь у поле внизу."
+        : "Відкривай листи, натискаючи на них. Знайшов — впиши відповідь у поле внизу.");
+      return { type: "probe", scene: v.scene, ask: v.ask, q: v.q, x: v.x || "", hint, scn };
+    },
+    render(box, p, setReady) {
+      const S = p.scn, win = el("div", "pb-win");
+      const head = el("div", "pb-head"), body = el("div", "pb-body");
+      win.append(head, body); box.appendChild(win);
+      if (p.scene === "files") {
+        let cwd = null;
+        const draw = () => {
+          head.innerHTML = ""; body.innerHTML = "";
+          if (cwd) { const back = el("button", "pb-back", "←"); back.type = "button"; back.onclick = () => { if (!locked(box)) { cwd = null; draw(); } }; head.appendChild(back); }
+          head.appendChild(el("span", "pb-path", "🖥 Цей ПК › D:" + (cwd ? " › " + cwd : "")));
+          const items = cwd ? S.tree[cwd] : Object.keys(S.tree);
+          items.forEach((name) => {
+            const row = el("button", "pb-row"); row.type = "button";
+            row.append(el("span", "pb-ic", cwd ? ICON(name) : "📁"), el("span", "pb-name", name));
+            row.onclick = () => {
+              if (locked(box)) return;
+              if (!cwd) { cwd = name; draw(); return; }
+              body.querySelectorAll(".pb-row").forEach((r) => r.classList.toggle("on", r === row));
+              const old = body.querySelector(".pb-props"); if (old) old.remove();
+              const pr = S.props[name] || {}, pp = el("div", "pb-props");
+              pp.appendChild(el("b", "", "Властивості: " + name));
+              pp.appendChild(el("span", "", "Тип: файл ." + (name.split(".").pop() || "")));
+              if (pr.dims) pp.appendChild(el("span", "", "Розміри: " + pr.dims));
+              if (pr.size) pp.appendChild(el("span", "", "Розмір: " + pr.size));
+              body.appendChild(pp);
+            };
+            body.appendChild(row);
+          });
+          if (cwd && !items.length) body.appendChild(el("p", "pb-empty", "Папка порожня"));
+        };
+        draw();
+      } else if (p.scene === "slides") {
+        head.appendChild(el("span", "pb-path", "📊 Проєкт.pptx"));
+        const open = el("button", "btn ghost", "Відкрити презентацію"); open.type = "button"; body.appendChild(open);
+        open.onclick = () => {
+          if (locked(box)) return;
+          body.innerHTML = "";
+          const strip = el("div", "pb-strip"), view = el("div", "pb-slide");
+          S.slides.forEach((s, i) => {
+            const b = el("button", "pb-thumb" + (s.hidden ? " hid" : "")); b.type = "button";
+            b.append(el("span", "pb-no", String(i + 1)), el("span", "", s.title));
+            b.onclick = () => {
+              if (locked(box)) return;
+              strip.querySelectorAll(".pb-thumb").forEach((x) => x.classList.toggle("on", x === b));
+              view.innerHTML = "";
+              view.append(el("div", "pb-stitle", s.title), el("div", "pb-notes", "Нотатки: " + (s.notes || "—")));
+            };
+            strip.appendChild(b);
+          });
+          view.appendChild(el("p", "pb-empty", "Натисни на слайд ліворуч."));
+          body.append(strip, view);
+        };
+      } else {
+        head.appendChild(el("span", "pb-path", "✉️ Вхідні — Пошта Ліцею"));
+        const list = el("div", "pb-list"), view = el("div", "pb-mail");
+        S.mails.forEach((m) => {
+          const b = el("button", "pb-row"); b.type = "button";
+          b.append(el("span", "pb-ic", m.attach ? "📎" : "✉️"), el("span", "pb-name", `${m.from} — ${m.subj}`));
+          b.onclick = () => {
+            if (locked(box)) return;
+            list.querySelectorAll(".pb-row").forEach((x) => x.classList.toggle("on", x === b));
+            view.innerHTML = "";
+            view.appendChild(el("div", "pb-mh", `Від: ${m.from} <${m.addr}>`));
+            if (m.cc) view.appendChild(el("div", "pb-mh", "Копія: " + m.cc.join(", ")));
+            view.appendChild(el("div", "pb-mh", "Тема: " + m.subj));
+            const txt = el("p", "pb-mb");
+            String(m.body).split(/(\[[^\]]+\])/).forEach((part) => {
+              if (/^\[.+\]$/.test(part)) {
+                const a = el("button", "pb-link", part.slice(1, -1)); a.type = "button";
+                a.onclick = () => { if (locked(box)) return; const t = view.querySelector(".pb-tip") || el("div", "pb-tip"); t.textContent = "🔗 Посилання насправді веде на: " + (m.href || "https://" + part.slice(1, -1)); view.appendChild(t); };
+                txt.appendChild(a);
+              } else txt.append(part);
+            });
+            view.appendChild(txt);
+            if (m.attach) { const at = el("div", "pb-att"); m.attach.forEach(([n, s]) => at.appendChild(el("span", "", `📎 ${n} · ${s}`))); view.appendChild(at); }
+          };
+          list.appendChild(b);
+        });
+        body.append(list, view);
+      }
+      const inp = document.createElement("input"); inp.type = "text"; inp.className = "pb-ans"; inp.placeholder = "Твоя відповідь";
+      inp.autocomplete = "off"; inp.spellcheck = false; inp.setAttribute("autocapitalize", "off");
+      if (S.numeric) inp.inputMode = "numeric";
+      inp.oninput = () => setReady(!!inp.value.trim());
+      box.appendChild(inp);
+      return { get: () => inp.value, text: () => inp.value.trim(), inp };
+    },
+    judge(p, val) {
+      const S = p.scn;
+      if (S.numeric) return digits(val) !== "" && S.accept.some((a) => digits(a) === digits(val));
+      const n = normAns(val).replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+      return S.accept.some((a) => normAns(a) === n || normAns(a) === normAns(val));
+    },
+    reveal(box, p, api) {
+      const ok = probe.judge(p, api.get());
+      api.inp.disabled = true; api.inp.classList.add(ok ? "right" : "wrong");
+      if (!ok) box.appendChild(el("p", "pb-fix", "✓ У твоєму варіанті правильно: " + p.scn.answer));
+    },
+    correctText: (p) => p.scn.answer + " (у твоєму варіанті)"
+  };
+
+  window.TASKS = { sort, order, keys, spot, sim, probe, SCENES, normCombo };
 })();

@@ -41,6 +41,22 @@ for (const t of list) {
         if (new Set(all).size !== all.length) bad(w + ": alt дублює відповідь");
         if (/ctrl\+(t|w|n|d|k|p|s|o|h|j|l|r|q|tab)$/.test(T.normCombo(v.keys)) || /ctrl\+shift\+(n|t|w|q|\]|\[|delete)$/.test(T.normCombo(v.keys))) bad(w + ": браузерне сполучення " + v.keys);
       }
+      if (v.type === "probe") {   // 60 випадкових варіантів: відповідь має бути одна й зараховуватися
+        if (!["files", "slides", "mail"].includes(v.scene)) bad(w + ": невідома сцена " + v.scene);
+        for (let k = 0; k < 60; k++) {
+          const p = T.probe.parse(Object.assign({}, v)), S = p.scn;
+          if (!S || S.answer === undefined || S.answer === "") { bad(w + ": немає відповіді (ask " + v.ask + ")"); break; }
+          if (!T.probe.judge(p, S.answer)) { bad(w + ": правильна відповідь не зараховується"); break; }
+          if (T.probe.judge(p, "") || T.probe.judge(p, "zzz")) { bad(w + ": зараховується порожнє/хибне"); break; }
+          if (v.scene === "files") {
+            const all = Object.entries(S.tree).flatMap(([f, xs]) => xs.map((x) => [f, x]));
+            const base = (x) => x.replace(/\.[^.]+$/, "").toLowerCase();
+            if (v.ask === "find" && all.filter(([, x]) => x.toLowerCase().endsWith("." + v.ext)).length !== 1) { bad(w + ": файлів ." + v.ext + " не рівно один"); break; }
+            if (v.ask === "where" && all.filter(([, x]) => x === v.file).length !== 1) { bad(w + ": файл трапляється не один раз"); break; }
+            if (["ext", "pixels", "size"].includes(v.ask) && all.filter(([, x]) => base(x) === base(v.file)).length !== 1) { bad(w + ": файл трапляється не один раз"); break; }
+          }
+        }
+      }
       if (v.type === "sim") {
         const p = T.sim.parse(v);
         if (v.sim === "nodes") {

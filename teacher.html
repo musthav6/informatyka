@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=202610130859">
+<link rel="stylesheet" href="assets/style.css?v=202610130916">
 </head>
 <body>
 <div class="wrap wide">
@@ -60,6 +60,7 @@
         <li><b>👥 ім'я</b> — у цьому ж тесті є учень зі схожим ім'ям (переставлені слова, одруківка) або з цього пристрою щойно проходили під іншим іменем: можлива нова спроба «під чужим» чи зміненим іменем.</li>
         <li><b>🔓 дод. спроба</b> — спроба понад норму (діагностувальна — друга й далі, тренажер — третя й далі). Вона відкривається лише паролем учителя.</li>
         <li><b>⚡ швидко</b> — менше 6 секунд на питання: схоже, клацав навмання.</li>
+        <li><b>📸 темп</b> — на кожне запитання йшло майже однаково часу (10–35 с) і майже все правильно. Живі діти відповідають нерівно; рівний темп типовий для «сфоткав → спитав ШІ». Спитай усно 1–2 запитання.</li>
         <li><b>📈 стрибок</b> — оцінка виросла на 5+ балів порівняно з попередньою спробою.</li>
         <li><b>🚪 виходи</b> — двічі й більше виходив із тесту (інша вкладка, застосунок, знімок екрана); <b>⛔ закрито</b> — тест закрито через виходи.</li>
       </ul>
@@ -94,8 +95,8 @@
     <code id="hash"></code>
   </details>
 </div>
-<script src="config.js?v=202610130859"></script>
-<script src="assets/engine.js?v=202610130859"></script>
+<script src="config.js?v=202610130916"></script>
+<script src="assets/engine.js?v=202610130916"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -216,6 +217,8 @@
       if (sec < 6) add(x, "⚡ швидко", `${sec.toFixed(1).replace(".", ",")} с на питання — схоже, клацав навмання`);
       if (+x.viol >= 2) add(x, "🚪 виходи", `Виходив із тесту ${x.viol} рази`);
       if (/завершено/i.test(x.note || "")) add(x, "⛔ закрито", String(x.note));
+      const pc = /📸 рівний темп: ([^;]+)/.exec(x.note || "");
+      if (pc) add(x, "📸 темп", `Майже однаковий час на кожне запитання (${pc[1].trim()}) — так буває, коли питання фотографують і питають ШІ. Варто спитати усно.`);
       const m = /👥 до цього з цього пристрою: ([^;]+)/.exec(x.note || "");
       if (m) add(x, "👥 ім'я", `До цього з того самого пристрою цей тест проходив(-ла) «${m[1].trim()}»`);
     });

@@ -289,7 +289,9 @@
       const { p } = cur();
       // дедлайн запитання зберігається в стані — перезавантаження сторінки його не скидає
       const lim = qLimit(p);
-      if (lim && !st.qDeadline) { st.qDeadline = Date.now() + lim; store.set(KEY_ACTIVE, st); }
+      if (!st.qStart) st.qStart = Date.now();   // для темпу: скільки секунд пішло на кожне запитання
+      if (lim && !st.qDeadline) st.qDeadline = Date.now() + lim;
+      store.set(KEY_ACTIVE, st);
       if (!lim) st.qDeadline = 0;
       clearInterval(tick);
       if (st.deadline || st.qDeadline) { tick = setInterval(updTimer, 250); updTimer(); } else $("timer").textContent = "";
@@ -347,8 +349,9 @@
     function record(ok, ans, burnt) {
       const { sl } = cur();
       const a = burnt ? null : ans && typeof ans.text === "function" ? ans.text() : ans instanceof Set ? [...ans].join("; ") : ans;
-      st.results.push({ sl, v: st.vars[sl], ok, a, b: isBonus(sl) ? st.bonus.q : undefined });
-      st.checked = true; st.qDeadline = 0; store.set(KEY_ACTIVE, st);
+      const t = st.qStart ? Math.round((Date.now() - st.qStart) / 1000) : undefined;
+      st.results.push({ sl, v: st.vars[sl], ok, a, b: isBonus(sl) ? st.bonus.q : undefined, t });
+      st.checked = true; st.qDeadline = 0; st.qStart = 0; store.set(KEY_ACTIVE, st);
     }
     function advance() {
       st.checked = false; st.i++;
@@ -373,6 +376,20 @@
       fb.lastChild.textContent = ok ? "" : p.x; fb.lastChild.hidden = ok || !p.x; fb.hidden = false;
       $("next").textContent = st.i === N - 1 ? "Завершити" : "Далі"; $("next").disabled = false;
     };
+
+    /* Темп «сфоткав → спитав ШІ»: на кожне звичайне запитання майже однаковий час (≈ 10–35 с) і майже все правильно.
+       Живі діти відповідають нерівно: легке — за кілька секунд, важке — довше. Результат іде в «Примітку» (📸). */
+    function paceFlag(results) {
+      const plain = results.filter((x) => x.t !== undefined && x.a !== null && x.b === undefined && !parseVariant(T.slots[x.sl][x.v]).task);
+      if (plain.length < 6) return "";
+      const ts = plain.map((x) => x.t).sort((a, b) => a - b);
+      const med = ts[Math.floor(ts.length / 2)], mean = ts.reduce((a, b) => a + b, 0) / ts.length;
+      const sd = Math.sqrt(ts.reduce((a, b) => a + (b - mean) ** 2, 0) / ts.length);
+      const okShare = plain.filter((x) => x.ok).length / plain.length;
+      if (med >= 10 && med <= 35 && ts[0] >= 7 && sd / mean <= 0.3 && okShare >= 0.8)
+        return `📸 рівний темп: ${ts[0]}–${ts[ts.length - 1]} с на кожне, ${plain.filter((x) => x.ok).length}/${plain.length} правильно`;
+      return "";
+    }
 
     /* ---------- вихід із вкладки, скріншот ---------- */
     function violation(reason) {
@@ -422,9 +439,10 @@
       const r = rec(st.cls, st.name);
       const att = { no: st.no, score, total: N, g: grade12(score, N), viol: st.viol, at: Date.now(), sec: Math.round((Date.now() - st.startedAt) / 1000), reason: reason || "", results: st.results };
       r.attempts.push(att); saveRec(st.cls, st.name, r);
+      const pace = paceFlag(st.results);
       queueResult({
         ts: new Date().toISOString(), testId: T.id, test: T.title, kind: T.kind, cls: st.cls, name: st.name,
-        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : "", st.timeouts ? `⏱ не встиг(ла): ${st.timeouts}` : "", st.prev ? `👥 до цього з цього пристрою: ${st.prev}` : ""].filter(Boolean).join("; "),
+        attempt: st.no, score, total: N, grade12: att.g, violations: st.viol, durationSec: att.sec, note: [att.reason, st.bonus ? "🎁 бонусне питання" : "", st.timeouts ? `⏱ не встиг(ла): ${st.timeouts}` : "", pace, st.prev ? `👥 до цього з цього пристрою: ${st.prev}` : ""].filter(Boolean).join("; "),
         wrong: st.results.filter((x) => !x.ok).map((x) => `${x.sl + 1}${x.a === null ? "(пропуск)" : ""}`).join(", ")
       });
       const who = { cls: st.cls, name: st.name };

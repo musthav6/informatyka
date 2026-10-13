@@ -622,3 +622,36 @@ svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;tou
 
 /* клавіші в текстах практичних — дрібніші за клавіші в тренажерах */
 .keys kbd{font-size:.85em;font-weight:600;min-width:0;padding:0 6px;border-width:1px;border-bottom-width:2px;border-radius:6px;background:var(--surface-2);line-height:1.5}
+
+/* «Знайди й впиши» (probe, assets/tasks.js) */
+.pb-win{border:1.5px solid var(--line-2);border-radius:14px;background:var(--surface);overflow:hidden}
+.pb-head{display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:14px;font-weight:600;min-height:42px}
+.pb-path{overflow-wrap:anywhere}
+.pb-back{border:1px solid var(--line-2);background:var(--surface);color:var(--fg);border-radius:8px;padding:2px 10px;font:inherit;cursor:pointer}
+.pb-body{padding:8px;display:flex;flex-direction:column;gap:6px}
+.pb-row{display:flex;gap:10px;align-items:center;text-align:left;width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font:inherit;font-size:15px;cursor:pointer}
+.pb-row.on,.pb-thumb.on{border-color:var(--accent);background:var(--accent-soft)}
+.pb-name{overflow-wrap:anywhere}
+.pb-props,.pb-tip,.pb-att{display:flex;flex-direction:column;gap:2px;padding:10px 12px;border-radius:10px;background:var(--surface-2);border:1px dashed var(--line-2);font-size:14px}
+.pb-tip{background:var(--warn-soft);color:var(--warn);border-style:solid;font-weight:600;overflow-wrap:anywhere}
+.pb-empty{margin:4px;color:var(--muted);font-size:14px}
+.pb-body:has(.pb-strip){flex-direction:row;align-items:flex-start}
+.pb-strip{display:flex;flex-direction:column;gap:6px;flex:0 0 42%}
+.pb-thumb{display:flex;gap:8px;align-items:center;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);font:inherit;font-size:14px;cursor:pointer}
+.pb-thumb .pb-no{font-weight:700;min-width:18px}
+.pb-thumb.hid{opacity:.45}
+.pb-thumb.hid .pb-no{text-decoration:line-through}
+.pb-slide{flex:1;min-width:0;display:flex;flex-direction:column;gap:8px}
+.pb-stitle{padding:22px 12px;border:1px solid var(--line-2);border-radius:10px;text-align:center;font-weight:700;background:var(--surface-2)}
+.pb-notes{font-size:14px;padding:8px 10px;border-radius:10px;background:var(--surface-2);overflow-wrap:anywhere}
+.pb-list{display:flex;flex-direction:column;gap:6px}
+.pb-mail{display:flex;flex-direction:column;gap:4px;font-size:14px;overflow-wrap:anywhere}
+.pb-mail:not(:empty){padding:10px 12px;border-radius:10px;background:var(--surface-2)}
+.pb-mh{color:var(--muted)}
+.pb-mb{margin:6px 0 0;color:var(--fg)}
+.pb-link{border:0;background:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
+.pb-ans{width:100%;font:inherit;font-size:17px;padding:12px 14px;border:1.5px solid var(--line-2);border-radius:12px;background:var(--surface);color:var(--fg)}
+.pb-ans.right{border-color:var(--pass);background:var(--pass-soft)}
+.pb-ans.wrong{border-color:var(--fail);background:var(--fail-soft)}
+.pb-fix{margin:0;color:var(--pass);font-weight:600}
+@media (max-width:520px){.pb-body:has(.pb-strip){flex-direction:column}.pb-strip{flex-basis:auto;width:100%}}
