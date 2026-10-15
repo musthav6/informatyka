@@ -440,6 +440,7 @@
     }
 
     function showResult(cls, name) {
+      if ($("tBack2")) $("tBack2").hidden = false;
       const r = rec(cls, name), last = r.attempts[r.attempts.length - 1];
       ["start", "quiz", "blocked", "warn"].forEach((id) => ($(id).hidden = true));
       const box = $("result"); box.hidden = false;

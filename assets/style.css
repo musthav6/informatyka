@@ -119,13 +119,22 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .sec-title{display:flex;align-items:center;gap:10px}
 .sec-ico{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--accent-soft);font-size:18px;flex:none}
 .defs{display:flex;flex-direction:column;gap:10px}
-.def{position:relative;background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:12px 14px 12px 18px;text-wrap:pretty}
+.def{position:relative;background:var(--accent-soft);border:2px solid color-mix(in srgb,var(--accent) 55%,transparent);border-radius:14px;padding:22px 14px 12px 18px;margin-top:10px;text-wrap:pretty}
+/* ярлик «✍️ Запиши» на рамці кожного визначення — і в «Коротко», і в повному конспекті */
+.def::after{content:"✍️ Запиши";position:absolute;top:-11px;left:14px;padding:1px 10px;border-radius:999px;font-size:12px;font-weight:700;line-height:20px;background:var(--accent);color:#fff;white-space:nowrap}
+.def.plus::after{content:"✍️ Запиши — на 12";background:var(--warn);color:var(--surface)}
+.writehint{margin:0;padding:8px 12px;border-radius:12px;background:var(--surface-2);border:1px dashed var(--line-2);font-size:15px}
+.backbtn{display:inline-flex;align-items:center;gap:6px;align-self:flex-start;padding:10px 16px;border-radius:999px;background:var(--accent);color:#fff;font-weight:700;font-size:16px;text-decoration:none;box-shadow:var(--shadow)}
+.backbtn:hover{filter:brightness(1.08)}
+.backbtn:focus-visible{outline:3px solid var(--accent-2);outline-offset:2px}
+.backbtn.wide{align-self:stretch;justify-content:center;padding:14px 18px;font-size:17px}
+.backbtn[hidden]{display:none}
 .def::before{content:"";position:absolute;left:0;top:10px;bottom:10px;width:4px;border-radius:0 4px 4px 0;background:var(--grad)}
 .def b{color:var(--accent-ink)}
 /* «Коротко — на 9 балів» і ⭐-визначення для 12 */
 .brief{display:flex;flex-direction:column;gap:8px}
 .brief p{margin:0;line-height:1.55}
-.def.plus{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 35%,transparent)}
+.def.plus{background:var(--warn-soft);border-color:color-mix(in srgb,var(--warn) 60%,transparent)}
 .def.plus::before{background:var(--warn)}
 .plusb{display:inline-block;margin-right:4px;padding:1px 8px;border-radius:999px;font-size:12px;font-weight:700;background:var(--warn);color:var(--surface);vertical-align:1px;white-space:nowrap}
 .pluslegend{margin:0;font-size:14px;color:var(--muted)}
@@ -654,3 +663,4 @@ svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;tou
 .pb-ans.wrong{border-color:var(--fail);background:var(--fail-soft)}
 .pb-fix{margin:0;color:var(--pass);font-weight:600}
 @media (max-width:520px){.pb-body:has(.pb-strip){flex-direction:column}.pb-strip{flex-basis:auto;width:100%}}
+.def.plus .plusb{display:none}

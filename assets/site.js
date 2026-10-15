@@ -128,6 +128,7 @@
     const brief = $("brief"); brief.innerHTML = ""; brief.hidden = !(l.brief && l.brief.length);
     (l.brief || []).forEach((t) => brief.appendChild(el("p", "", t)));
     const defs = $("defs"); defs.innerHTML = "";
+    $("writeHint").hidden = !(l.defs && l.defs.length);
     (l.defs || []).forEach(([term, text]) => {
       const d = el("div", "def");
       d.appendChild(el("b", "", term)); d.appendChild(document.createTextNode(" — " + text));
@@ -161,7 +162,7 @@
     if (!p) { $("pTitle").textContent = "Практичну роботу не знайдено"; return; }
     const l = lessonOf(p.grade, p.lesson);
     document.title = p.title;
-    $("pBack").href = l ? `index.html?l=${l.id}` : "index.html";
+    $("pBack").href = $("pBack2").href = l ? `index.html?l=${l.id}` : "index.html";
     $("pEyebrow").textContent = `Інформатика · ${p.grade} клас · Урок ${p.lesson}`;
     $("pTitle").textContent = p.title;
     $("pGoal").textContent = p.goal || "";
