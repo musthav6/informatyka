@@ -225,20 +225,9 @@
       openQuiz();
     }
 
-    // Водяний знак з іменем, класом і часом поверх завдань: скрін чи фото екрана видає, чиї це завдання
-    function setWatermark() {
-      const d = new Date(st.startedAt), p2 = (n) => String(n).padStart(2, "0");
-      const text = `${st.name} · ${st.cls} · ${p2(d.getDate())}.${p2(d.getMonth() + 1)} ${p2(d.getHours())}:${p2(d.getMinutes())}`;
-      const esc = text.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-      const fg = getComputedStyle(document.body).color;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="420" height="170"><text x="210" y="90" text-anchor="middle" transform="rotate(-20 210 85)" font-family="sans-serif" font-size="15" font-weight="600" fill="${fg}" fill-opacity="0.1">${esc}</text></svg>`;
-      $("quiz").style.setProperty("--wm", `url("data:image/svg+xml,${encodeURIComponent(svg)}")`);
-    }
-
     function openQuiz() {
       ["start", "result", "blocked"].forEach((id) => ($(id).hidden = true));
       $("quiz").hidden = false;
-      setWatermark();
       $("rail").innerHTML = "<i></i>".repeat(N);
       show();
     }

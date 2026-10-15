@@ -176,11 +176,10 @@ section.card.gate{border-style:dashed}
 .gohint{margin:-4px 0 0;font-size:14px;color:var(--accent-ink);font-weight:500}
 .howto summary{cursor:pointer;font-weight:600;color:var(--accent)}
 .howto ol{margin:8px 0 0;padding-left:22px;display:flex;flex-direction:column;gap:4px;font-size:15px}
-/* водяний знак з іменем учня поверх завдань (engine.js → setWatermark) і розмиття без фокусу */
+/* розмиття завдань, поки сторінка без фокусу */
 #quiz{position:relative}
-#quiz::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;background-image:var(--wm,none);background-repeat:repeat;z-index:5}
 body.veiled #quiz{filter:blur(12px)}
-.ainote{margin:0;color:var(--muted);font-size:11px;line-height:1.35}
+.ainote{margin:0;color:var(--muted);font-size:13px;line-height:1.35}
 .qtext + .ainote{margin-top:-6px}
 .opts{display:flex;flex-direction:column;gap:10px}
 .opt{display:flex;gap:12px;align-items:center;padding:14px;border:1.5px solid var(--line);border-radius:14px;cursor:pointer;background:var(--surface);position:relative;transition:border-color .12s,background .12s,transform .12s}
