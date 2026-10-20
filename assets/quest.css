@@ -325,3 +325,13 @@ body[data-world="range"] #stage canvas{cursor:none}
 .gamehud .big.mono,.rgbcode{font-family:Consolas,"Courier New",ui-monospace,monospace;letter-spacing:.04em}
 /* у міні-грі сповіщення — унизу, щоб не перекривало банер із завданням */
 body.ingame .toast{top:auto;bottom:max(150px,calc(env(safe-area-inset-bottom) + 150px))}
+/* написи в 3D-світах — звичайний текст поверх сцени (lib3d.js) */
+.l3d-layer{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.l3d{position:absolute;left:0;top:0;pointer-events:none;font-family:Rubik,system-ui,sans-serif;font-weight:700;line-height:1.15;text-align:center;white-space:nowrap;will-change:transform;color:#fff;-webkit-font-smoothing:antialiased}
+.l3d.mono{font-family:Consolas,"Courier New",ui-monospace,monospace;letter-spacing:.03em}
+.l3d.tag{background:#fff;color:#1f2937;border-radius:8px;padding:2px 8px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.l3d.sign{color:#fff;border-radius:8px;padding:3px 10px;box-shadow:0 3px 10px rgba(0,0,0,.3)}
+.l3d.crate{background:#78350f;color:#fff;border-radius:6px;padding:2px 7px;font-size:13px;box-shadow:0 2px 6px rgba(0,0,0,.3)}
+.l3d.fit{white-space:normal;overflow-wrap:anywhere}
+.l3d.dark{color:#0f172a}
+.l3d-layer.ingame .bgonly{display:none!important}

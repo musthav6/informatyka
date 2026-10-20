@@ -22,6 +22,7 @@
       const scene = new THREE.Scene(), sky = new THREE.Color(TH.sky || "#a5d8ff");
       scene.background = sky; scene.fog = new THREE.Fog(sky, 35, 110);
       const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 300);
+      const L = window.L3D.makeLabels(THREE, camera, stage); // написи — HTML-текстом, чіткі
       scene.add(new THREE.HemisphereLight(0xffffff, 0x5577aa, 0.95));
       const sun = new THREE.DirectionalLight(0xffffff, 0.75); sun.position.set(10, 20, 8); scene.add(sun);
       const resize = () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 72 : 60; camera.updateProjectionMatrix(); };
@@ -74,7 +75,7 @@
       const basics = S.filter((s) => !s.optional && !s.final), stars = S.filter((s) => s.optional), fin = S.find((s) => s.final);
       const start = { x: 0, y: 0, z: 0 };
       island(0, 0, 0);
-      const spawnSign = sprite("СТАРТ", { bg: "#16a34a", size: 64, sx: 2.2, sy: 0.6 }); spawnSign.position.set(0, 2.5, -3); scene.add(spawnSign);
+      L.add("СТАРТ", new THREE.Vector3(0, 2.5, -3), { cls: "sign", bg: "#16a34a", size: 15, ref: 12, max: 22 });
       let prev = start;
       basics.forEach((s, i) => { s.pos = { x: (i + 1) * STEP, y: (i % 3) * 0.7, z: i % 2 ? -5 : 5 }; });
       const last = basics[basics.length - 1].pos;
@@ -101,8 +102,8 @@
       S.forEach((s) => {
         const g = person(s.npc.look, s.npc.hat); g.position.set(s.pos.x, s.pos.y, s.pos.z - 1.5); scene.add(g); s.mesh = g;
         const bang = sprite("!", { bg: "#facc15", fg: "#422006", w: 128, h: 128, size: 100, sx: 0.8, sy: 0.8 }); bang.position.set(s.pos.x, s.pos.y + 3.3, s.pos.z - 1.5); scene.add(bang); s.bang = bang;
-        const nm = sprite(s.npc.name, { bg: "#ffffff", fg: "#1f2937", size: 54, sx: 2.6, sy: 0.65 }); nm.position.set(s.pos.x, s.pos.y + 2.75, s.pos.z - 1.5); scene.add(nm); s.nm = nm;
-        const tp = sprite(s.topic || "", { bg: s.optional ? "#ca8a04" : "#4f46e5", size: 52, sx: 4.2, sy: 0.75 }); tp.position.set(s.pos.x, s.pos.y + 6, s.pos.z); scene.add(tp);
+        s.nm = L.add(s.npc.name, new THREE.Vector3(s.pos.x, s.pos.y + 2.75, s.pos.z - 1.5), { cls: "tag", size: 13, ref: 12, min: 9, max: 18 });
+        L.add(s.topic || "", new THREE.Vector3(s.pos.x, s.pos.y + 6, s.pos.z), { cls: "sign", bg: s.optional ? "#ca8a04" : "#4f46e5", size: 15, ref: 12, min: 9, max: 22 });
         const pr = (TH.props || [])[s.i % (TH.props || [1]).length];
         if (pr) { const e = sprite(pr, { bg: "rgba(0,0,0,0)", w: 256, h: 256, size: 200, sx: 2.2, sy: 2.2 }); e.position.set(s.pos.x + 3.2, s.pos.y + 2.2, s.pos.z - 3.2); scene.add(e); s.prop = e; props.push({ m: e, bob: Math.random() * 6, y: e.position.y }); }
         block(s.pos.x, s.pos.y + 1.6, s.pos.z - 1.5, 0.9, 1.6, 0.6, new THREE.MeshBasicMaterial({ visible: false }));
@@ -151,7 +152,6 @@
 
       /* ---------------- міні-гра «скрині» */
       let game = null, tt = 0, ws = null;
-      function cubeTex(text, bg) { return new THREE.MeshLambertMaterial({ map: textTex(text, { bg, fg: "#fff", size: 46, w: 256, h: 256, border: "#00000033" }) }); }
       function startChests(p, R, done) {
         if (game) return; // уже йде
         const v = R.pick(p.v), s = curStation || S[0], c = s.pos, n = v.groups.length;
@@ -159,28 +159,29 @@
         const chests = v.groups.map((g, i) => {
           const x = c.x - ISL / 2 + 1.4 + i * (ISL - 2.8) / Math.max(1, n - 1), z = c.z - ISL / 2 + 1;
           const m = new THREE.Mesh(BOX, M(cols[i])); m.scale.set(2, 1.2, 1.4); m.position.set(x, c.y + 0.6, z); scene.add(m);
-          const lab = sprite(g, { bg: cols[i], size: 64, sx: 3, sy: 0.75 }); lab.position.set(x, c.y + 2.4, z); scene.add(lab);
+          const lab = L.add(g, m, { dy: 1.5, cls: "sign", bg: cols[i], size: 16, ref: 11, min: 11, max: 24 });
           return { g, i, x, z, m, lab };
         });
         const items = R.shuffle(v.items).map(([t, gi], k) => {
-          const a = k / v.items.length * Math.PI * 2, r = 2.6 + (k % 2) * 1.1;
-          const m = new THREE.Mesh(BOX, cubeTex(t, "#f59e0b")); m.scale.set(0.9, 0.9, 0.9);
-          const x = c.x + Math.cos(a) * r, z = c.z + 1 + Math.sin(a) * r * 0.75;
+          // сітка: 2 колонки, рядки один за одним до гравця — підписи не налазять один на одного
+          const cols2 = 2, row = Math.floor(k / cols2), col = k % cols2;
+          const m = new THREE.Mesh(BOX, M("#f59e0b")); m.scale.set(0.9, 0.9, 0.9);
+          const x = c.x + (col ? 2.3 : -2.3) + (row % 2 ? 0.5 : -0.5), z = c.z - 0.5 + row * 1.6;
           m.position.set(x, c.y + 0.6, z); scene.add(m);
-          const lab = sprite(t, { bg: "#78350f", size: 60, sx: 1.9, sy: 0.45 }); lab.position.set(x, c.y + 1.35, z); scene.add(lab);
+          const lab = L.add(t, m, { dy: 0.8, cls: "crate", size: 12, ref: 10, min: 9, max: 15 });
           return { t, gi, m, lab, placed: null, x, z };
         });
         s.mesh.visible = s.bang.visible = s.nm.visible = false; if (s.prop) s.prop.visible = false;
         game = { v, s, chests, items, carry: null, done, hud: core.el("div", "gamehud") };
         document.body.append(game.hud); hud();
-        P.x = c.x - 4; P.z = c.z + 4; P.y = c.y; P.vy = 0; paused = false; pad.hidden = jbtn.hidden = !coarse;
+        P.x = c.x; P.z = c.z + 4.3; P.y = c.y; P.vy = 0; paused = false; pad.hidden = jbtn.hidden = !coarse;
       }
       function hud() { const g = game, left = g.items.filter((i) => i.placed == null).length; g.hud.innerHTML = `<div class="big">${core.esc(g.v.q)}</div><small>Підбіжи до кубика — він підніметься. Неси до потрібної скрині. Залишилось: ${left}${g.carry ? ` · несеш «${core.esc(g.carry.t)}»` : ""}</small>`; }
       function updateGame() {
         const g = game;
         if (!g.carry) { const it = g.items.find((i) => i.placed == null && Math.hypot(i.m.position.x - P.x, i.m.position.z - P.z) < 1.1); if (it) { g.carry = it; hud(); } }
         else {
-          g.carry.m.position.set(P.x, P.y + 2.6, P.z); g.carry.lab.position.set(P.x, P.y + 3.4, P.z);
+          g.carry.m.position.set(P.x, P.y + 2.6, P.z);
           const ch = g.chests.find((c) => Math.hypot(c.x - P.x, c.z - P.z) < 1.6);
           if (ch) {
             const it = g.carry; it.placed = ch.i; g.carry = null;
@@ -190,7 +191,7 @@
             if (g.items.every((o) => o.placed != null)) {
               const bad = g.items.filter((o) => o.placed !== o.gi);
               setTimeout(() => {
-                g.items.forEach((o) => { scene.remove(o.m); scene.remove(o.lab); }); g.chests.forEach((c) => { scene.remove(c.m); scene.remove(c.lab); });
+                g.items.forEach((o) => { scene.remove(o.m); L.remove(o.lab); }); g.chests.forEach((c) => { scene.remove(c.m); L.remove(c.lab); });
                 g.hud.remove(); g.s.mesh.visible = g.s.bang.visible = g.s.nm.visible = true; if (g.s.prop) g.s.prop.visible = true; game = null; paused = true; pad.hidden = jbtn.hidden = true;
                 g.done(!bad.length, (bad.length ? "Помилки: " + bad.map((o) => `«${core.esc(o.t)}» — ${core.esc(g.v.groups[o.gi])}`).join("; ") + ". " : "") + core.esc(g.v.x || ""), `У правильних скринях: ${g.items.length - bad.length} з ${g.items.length}.`);
               }, 600);
@@ -240,7 +241,7 @@
         const far = camera.aspect < 1 ? (game ? 1.55 : 1.3) : (game ? 1.2 : 1);
         camPos.lerp(new THREE.Vector3(game ? game.s.pos.x : P.x, P.y + 8.5 * far, P.z + 12 * far), Math.min(1, dt * 4));
         camera.position.copy(camPos); camera.lookAt(game ? game.s.pos.x : P.x, P.y + 1, P.z - 2.5);
-        renderer.render(scene, camera);
+        renderer.render(scene, camera); L.update();
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);

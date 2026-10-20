@@ -57,7 +57,7 @@
   let toastT = 0;
   function toast(t, ms = 2600) { const e = $("#toast"); e.textContent = t; e.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { e.hidden = true; }, ms); }
   function loadScript(src) { return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = bad; document.head.append(s); }); }
-  const VER = "202610211330"; // мітка для світів і quests/*.js — міняти разом із bump_version.py
+  const VER = "202610211530"; // мітка для світів і quests/*.js — міняти разом із bump_version.py
 
   /* ================================================================ УРОК */
   function run(Q, W) {
@@ -807,6 +807,7 @@
     const Q = LIST[0], wname = Q.world || "studio";
     if (["runner", "blocky", "range"].includes(wname) && !window.THREE) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
     if (["studio", "arena"].includes(wname)) await loadScript(`assets/worlds/lib2d.js?v=${VER}`);
+    else await loadScript(`assets/worlds/lib3d.js?v=${VER}`);
     await loadScript(`assets/worlds/${wname}.js?v=${VER}`);
     run(Q, window.QWORLDS[wname]);
   }).catch(() => fail("Не вдалося завантажити гру — перевір інтернет і онови сторінку"));

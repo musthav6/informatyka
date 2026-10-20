@@ -25,6 +25,7 @@
       const sky = new THREE.Color(TH.sky || "#7dd3fc");
       scene.background = sky; scene.fog = new THREE.Fog(sky, 40, 150);
       const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 400);
+      const L = window.L3D.makeLabels(THREE, camera, stage); // написи — HTML-текстом, чіткі
       camera.position.set(0, 3.6, 7); camera.lookAt(0, 1.2, -8);
       scene.add(new THREE.HemisphereLight(0xffffff, 0x445566, 0.95));
       const sun = new THREE.DirectionalLight(0xffffff, 0.7); sun.position.set(5, 10, 6); scene.add(sun);
@@ -122,15 +123,15 @@
         const pad = new THREE.Mesh(BOX, M(s.optional ? "#fde047" : "#a5b4fc")); pad.scale.set(2.2, 0.25, 2.2); pad.position.set(LANE * 1.75, 0.12, 0); g.add(pad);
         const p = person(s.npc.look, s.npc.hat); p.position.set(LANE * 1.75, 0.25, 0); p.rotation.y = -0.6; g.add(p);
         const bang = sprite(s.optional ? "★" : "!", { bg: s.optional ? "#eab308" : "#facc15", fg: "#422006", w: 128, h: 128, size: 100, sx: 0.8, sy: 0.8 }); bang.position.set(LANE * 1.75, 3.1, 0); g.add(bang); g.userData.bang = bang;
-        const nm = sprite(s.npc.name, { bg: "#ffffff", fg: "#1f2937", size: 56, sx: 2.6, sy: 0.65 }); nm.position.set(LANE * 1.75, 2.55, 0); g.add(nm);
+        const nm = new THREE.Object3D(); nm.position.set(LANE * 1.75, 2.55, 0); g.add(nm); L.add(s.npc.name, nm, { cls: "tag", size: 13, ref: 8, min: 8, max: 20 });
         const arch = new THREE.Mesh(BOX, M("#1e1b4b")); arch.scale.set(7.4, 0.35, 0.35); arch.position.y = 4.2; g.add(arch);
         [-3.7, 3.7].forEach((x) => { const c = new THREE.Mesh(BOX, M("#1e1b4b")); c.scale.set(0.35, 4.2, 0.35); c.position.set(x, 2.1, 0); g.add(c); });
-        const sg = sprite(s.topic || s.npc.name, { bg: "#4f46e5", fg: "#fff", size: 54, sx: 5.2, sy: 0.8 }); sg.position.set(0, 4.75, 0); g.add(sg);
+        const sgp = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 0.85), new THREE.MeshBasicMaterial({ color: 0x4f46e5 })); sgp.position.set(0, 4.75, 0); g.add(sgp); L.add(s.topic || s.npc.name, sgp, { cls: "fit", fitW: 5.6, fitH: 0.85 });
         return g;
       }
       function forkGate() {
         const g = new THREE.Group();
-        const mk = (txt, x, w, bg) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.4), new THREE.MeshBasicMaterial({ map: textTex(txt, { bg, fg: "#fff", size: 60, w: 768, h: 160 }) })); s.position.set(x, 3.4, 0); g.add(s); };
+        const mk = (txt, x, w, bg) => { const s = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.4), new THREE.MeshBasicMaterial({ color: bg })); s.position.set(x, 3.4, 0); g.add(s); L.add(txt, s, { cls: "fit", fitW: w, fitH: 1.4 }); };
         mk("⭐ Зоряний маршрут (на 12)", -LANE / 2, LANE * 2 - 0.2, "#ca8a04");
         mk("🏁 Фініш (на 9)", LANE, LANE - 0.2, "#16a34a");
         [-3.7, LANE / 2, 3.7].forEach((x) => { const c = new THREE.Mesh(BOX, M("#0f172a")); c.scale.set(0.3, 4.2, 0.3); c.position.set(x, 2.1, 0); g.add(c); });
@@ -142,8 +143,8 @@
         const g = new THREE.Group(), n = labels.length;
         labels.forEach((t, i) => {
           const x = n === 2 ? (i ? LANE * 0.5 : -LANE * 0.5) * 2 : (i - 1) * LANE, w = n === 2 ? LANE * 2 - 0.3 : LANE - 0.2;
-          const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.1), new THREE.MeshBasicMaterial({ map: textTex(t, { bg: ["#2563eb", "#db2777", "#059669"][i], fg: "#fff", size: 64, w: 512, h: 128 }), transparent: true, opacity: 0.95 }));
-          pl.position.set(x, 3, 0); g.add(pl);
+          const pl = new THREE.Mesh(new THREE.PlaneGeometry(w, 1.1), new THREE.MeshBasicMaterial({ color: ["#2563eb", "#db2777", "#059669"][i] }));
+          pl.position.set(x, 3, 0); g.add(pl); L.add(t, pl, { cls: "fit", fitW: w, fitH: 1.1 });
         });
         const top = new THREE.Mesh(BOX, M("#0f172a")); top.scale.set(7.4, 0.25, 0.25); top.position.y = 3.65; g.add(top);
         return g;
@@ -234,7 +235,7 @@
         }
         objs = objs.filter((o) => !o.dead);
         camera.position.x += (laneX * 0.5 - camera.position.x) * Math.min(1, dt * 4);
-        renderer.render(scene, camera);
+        renderer.render(scene, camera); L.update();
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);

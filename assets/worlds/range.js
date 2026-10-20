@@ -22,6 +22,7 @@
       stage.append(renderer.domElement);
       const scene = new THREE.Scene(); scene.background = new THREE.Color(TH.bg || "#0f172a"); scene.fog = new THREE.Fog(scene.background, 25, 60);
       const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200);
+      const LB = window.L3D.makeLabels(THREE, camera, stage); // написи — HTML-текстом, чіткі
       const resize = () => { renderer.setSize(innerWidth, innerHeight); camera.aspect = innerWidth / innerHeight; camera.fov = innerWidth < innerHeight ? 85 : 70; camera.updateProjectionMatrix(); };
       addEventListener("resize", resize); resize();
       scene.add(new THREE.HemisphereLight(0xffffff, 0x475569, 1.05));
@@ -56,7 +57,7 @@
         add(BOX, M(TH.accent || "#4f46e5"), x, 0.55, -3.6, GAP - 0.6, 1.1, 0.5); // стійка-бар'єр
         add(BOX, M(s.optional ? "#ca8a04" : "#0f172a"), x, 0.02, -1.5, GAP - 0.6, 0.04, 5); // килимок
         const num = sprite(`${i + 1}`, { bg: s.optional ? "#ca8a04" : TH.accent || "#4f46e5", w: 128, h: 128, size: 90, sx: 0.8, sy: 0.8 }); num.position.set(x, 3.4, 3.9);
-        s.topicS = sprite(s.topic || "", { bg: "#0b1222", border: s.optional ? "#eab308" : "#6366f1", size: 50, sx: 4.6, sy: 0.75 }); s.topicS.position.set(x, 5.6, -18.6);
+        LB.add(s.topic || "", new THREE.Vector3(x, 5.6, -18.6), { cls: "sign bgonly", bg: s.optional ? "#a16207" : "#312e81", size: 14, ref: 20, min: 8, max: 22 });
         // декоративні мішені в глибині
         for (let k = -1; k <= 1; k++) { const t = add(new THREE.CylinderGeometry(0.6, 0.6, 0.08, 24), M(k ? "#f8fafc" : "#ef4444"), x + k * 2.4, 2.2, -18.6); t.rotation.x = Math.PI / 2; }
       });
@@ -75,7 +76,7 @@
         const g = person(s.npc.look, s.npc.hat); g.position.set(s.bx + 3.1, 0, -2.6); g.rotation.y = -0.55; scene.add(g); s.mesh = g;
         g.traverse((o) => { o.userData.station = s; });
         s.bang = sprite("!", { w: 128, h: 128, sx: 0.6, sy: 0.6 }); s.bang.position.set(s.bx + 3.1, 3, -2.6); s.bang.userData.station = s;
-        const nm = sprite(s.npc.name, { bg: "#ffffff", fg: "#1f2937", size: 54, sx: 1.7, sy: 0.42 }); nm.position.set(s.bx + 3.1, 2.65, -2.6); nm.userData.station = s;
+        LB.add(s.npc.name, new THREE.Vector3(s.bx + 3.1, 2.65, -2.6), { cls: "tag bgonly", size: 13, ref: 6, min: 9, max: 18 });
       });
 
       /* ---------------- зброя (бластер) у кадрі */
@@ -98,7 +99,8 @@
         const isCol = /^#[0-9a-f]{6}$/i.test(opt);
         const g = new THREE.Group();
         const plate = new THREE.Mesh(BOX, M("#0b1222")); plate.scale.set(isCol ? 1.9 : 2.7, isCol ? 1.9 : 1.15, 0.12); g.add(plate);
-        const face = new THREE.Mesh(isCol ? new THREE.CircleGeometry(0.85, 32) : new THREE.PlaneGeometry(2.55, 1.02), isCol ? new THREE.MeshBasicMaterial({ color: opt }) : new THREE.MeshBasicMaterial({ map: textTex(opt.trim(), { bg: "#f8fafc", fg: "#0f172a", size: 120, w: 1024, h: 410, mono: /^#/.test(opt) }) }));
+        const face = new THREE.Mesh(isCol ? new THREE.CircleGeometry(0.85, 32) : new THREE.PlaneGeometry(2.55, 1.02), new THREE.MeshBasicMaterial({ color: isCol ? opt : "#f8fafc" }));
+        if (!isCol) g.userData.lab = LB.add(opt.trim(), face, { cls: "fit dark", fitW: 2.55, fitH: 1.02, mono: /^#/.test(opt.trim()) });
         face.position.z = 0.07; g.add(face);
         if (isCol) { const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 0.95, 32), new THREE.MeshBasicMaterial({ color: 0xffffff })); ring.position.z = 0.075; g.add(ring); }
         const post = new THREE.Mesh(BOX, M("#475569")); post.scale.set(0.12, 1.6, 0.12); post.position.y = -1.4; g.add(post);
@@ -205,10 +207,10 @@
           t.rise = Math.min(1, t.rise + dt * 3);
           if (t.kind === "practice") { t.life -= dt; t.m.position.x += t.vx * dt; if (Math.abs(t.m.position.x - t.base) > 3.2) t.vx *= -1; t.m.position.y = 0.4 + t.rise * 1.7; if (t.life < 0) t.falling = true; }
           else { t.m.position.y = -1 + t.rise * 3.4 + (t.yOff || 0) + Math.sin(tt * 2 + t.ph) * 0.06; if (t.vx) t.m.position.x = t.base + Math.sin(tt * 1.3 + t.ph) * 0.6; }
-          if (t.falling) { t.m.rotation.x -= dt * 6; if (t.m.rotation.x < -1.5) { scene.remove(t.m); targets.splice(i, 1); } }
+          if (t.falling) { if (t.m.userData.lab) t.m.userData.lab.visible = false; t.m.rotation.x -= dt * 6; if (t.m.rotation.x < -1.5) { scene.remove(t.m); targets.splice(i, 1); } }
         }
         for (const s of S) { const stt = !core.st ? "lock" : core.isDone(s) ? "done" : !core.available(s) ? "lock" : s.optional ? "star" : "open"; if (s.bang.userData.st !== stt) { s.bang.material.map = bangTex[stt]; s.bang.material.needsUpdate = true; s.bang.userData.st = stt; } s.bang.position.y = 3 + (stt === "open" || stt === "star" ? Math.sin(tt * 4 + s.i) * 0.1 : 0); }
-        renderer.render(scene, camera);
+        LB.layer.classList.toggle("ingame", !!game); renderer.render(scene, camera); LB.update();
         requestAnimationFrame(frame);
       }
       requestAnimationFrame(frame);
