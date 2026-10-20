@@ -18,7 +18,7 @@
       const S = core.stations;
       S.forEach((s, i) => { s.bx = i * GAP; s.place = s.optional ? `⭐ кабінка ${i + 1}` : `кабінка ${i + 1}`; });
       const renderer = new THREE.WebGLRenderer({ antialias: !matchMedia("(pointer:coarse)").matches });
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2)); // сцена легка — даємо повну чіткість
       stage.append(renderer.domElement);
       const scene = new THREE.Scene(); scene.background = new THREE.Color(TH.bg || "#0f172a"); scene.fog = new THREE.Fog(scene.background, 25, 60);
       const camera = new THREE.PerspectiveCamera(70, 1, 0.05, 200);
@@ -36,7 +36,7 @@
         const fit = () => { g.font = `800 ${size}px ${fam}`; return lines.every((l) => g.measureText(l).width < w - 36) && lines.length * size * 1.15 < h - 20; };
         while (!fit() && size > 16) size -= 3;
         lines.forEach((l, i) => g.fillText(l, w / 2, h / 2 + (i - (lines.length - 1) / 2) * size * 1.15 + 3));
-        return new THREE.CanvasTexture(c);
+        const tx = new THREE.CanvasTexture(c); tx.anisotropy = renderer.capabilities.getMaxAnisotropy(); return tx;
       }
       function sprite(text, opt = {}) { const s = new THREE.Sprite(new THREE.SpriteMaterial({ map: textTex(text, opt) })); s.scale.set(opt.sx || 2.4, opt.sy || 0.6, 1); scene.add(s); return s; }
 
@@ -98,7 +98,7 @@
         const isCol = /^#[0-9a-f]{6}$/i.test(opt);
         const g = new THREE.Group();
         const plate = new THREE.Mesh(BOX, M("#0b1222")); plate.scale.set(isCol ? 1.9 : 2.7, isCol ? 1.9 : 1.15, 0.12); g.add(plate);
-        const face = new THREE.Mesh(isCol ? new THREE.CircleGeometry(0.85, 32) : new THREE.PlaneGeometry(2.55, 1.02), isCol ? new THREE.MeshBasicMaterial({ color: opt }) : new THREE.MeshBasicMaterial({ map: textTex(opt.trim(), { bg: "#f8fafc", fg: "#0f172a", size: 56, w: 640, h: 256, mono: /^#/.test(opt) }) }));
+        const face = new THREE.Mesh(isCol ? new THREE.CircleGeometry(0.85, 32) : new THREE.PlaneGeometry(2.55, 1.02), isCol ? new THREE.MeshBasicMaterial({ color: opt }) : new THREE.MeshBasicMaterial({ map: textTex(opt.trim(), { bg: "#f8fafc", fg: "#0f172a", size: 120, w: 1024, h: 410, mono: /^#/.test(opt) }) }));
         face.position.z = 0.07; g.add(face);
         if (isCol) { const ring = new THREE.Mesh(new THREE.RingGeometry(0.85, 0.95, 32), new THREE.MeshBasicMaterial({ color: 0xffffff })); ring.position.z = 0.075; g.add(ring); }
         const post = new THREE.Mesh(BOX, M("#475569")); post.scale.set(0.12, 1.6, 0.12); post.position.y = -1.4; g.add(post);
@@ -127,12 +127,18 @@
         const r = g.v.rounds[g.k];
         if (!r) return endShoot();
         const opts = core.R.shuffle(r[1].map((o, i) => ({ o, ok: i === 0 })));
-        // на вузькому (портретному) екрані мішені менші й ближче одна до одної
-        const narrow = camera.aspect < 1, n = opts.length, spread = Math.min(3, 8 / n) * (narrow ? 0.58 : 1);
+        // на вузькому (портретному) екрані мішені ближче й у два ряди, щоб були великі й чіткі
+        const narrow = camera.aspect < 1, n = opts.length;
+        const cols = narrow ? Math.min(n, 2) : n, rows = Math.ceil(n / cols);
+        const dist = narrow ? 6.8 : 9.5, halfW = dist * Math.tan(camera.fov * Math.PI / 360) * camera.aspect;
+        const spread = narrow ? halfW * 1.8 / cols : Math.min(3, 8 / n);
         opts.forEach((it, i) => {
-          const m = makeTarget(it.o); const x = camX + (i - (n - 1) / 2) * spread; if (narrow) m.scale.setScalar(0.62);
-          m.position.set(x, -1, -6.8 - (i % 2) * 1.2);
-          targets.push({ m, kind: "game", ok: it.ok, opt: it.o, base: x, vx: (i % 2 ? 1 : -1) * (g.k > 1 ? 0.5 : 0), rise: 0, ph: Math.random() * 6 });
+          const m = makeTarget(it.o), col = i % cols, row = Math.floor(i / cols);
+          const w = /^#[0-9a-f]{6}$/i.test(it.o) ? 1.9 : 2.7;
+          if (narrow) m.scale.setScalar(Math.min(1, spread * 0.9 / w));
+          const x = camX + (col - (cols - 1) / 2) * spread;
+          m.position.set(x, -1, 2.2 - dist - (narrow ? 0 : (i % 2) * 1.2));
+          targets.push({ m, kind: "game", ok: it.ok, opt: it.o, base: x, yOff: rows > 1 ? (row ? -0.55 : 0.75) : 0, vx: narrow ? 0 : (i % 2 ? 1 : -1) * (g.k > 1 ? 0.5 : 0), rise: 0, ph: Math.random() * 6 });
         });
         g.hud.innerHTML = `<small>${core.esc(g.v.q)} · ${g.k + 1} з ${g.v.rounds.length}</small><div class="big${/#|RGB/.test(r[0]) ? " mono" : ""}">${core.esc(r[0])}</div><small>${coarse ? "Торкнись" : "Наведи й клацни по"} правильній мішені — постріл один!</small>`;
       }
@@ -198,7 +204,7 @@
           const t = targets[i];
           t.rise = Math.min(1, t.rise + dt * 3);
           if (t.kind === "practice") { t.life -= dt; t.m.position.x += t.vx * dt; if (Math.abs(t.m.position.x - t.base) > 3.2) t.vx *= -1; t.m.position.y = 0.4 + t.rise * 1.7; if (t.life < 0) t.falling = true; }
-          else { t.m.position.y = -1 + t.rise * 3.4 + Math.sin(tt * 2 + t.ph) * 0.06; if (t.vx) t.m.position.x = t.base + Math.sin(tt * 1.3 + t.ph) * 0.6; }
+          else { t.m.position.y = -1 + t.rise * 3.4 + (t.yOff || 0) + Math.sin(tt * 2 + t.ph) * 0.06; if (t.vx) t.m.position.x = t.base + Math.sin(tt * 1.3 + t.ph) * 0.6; }
           if (t.falling) { t.m.rotation.x -= dt * 6; if (t.m.rotation.x < -1.5) { scene.remove(t.m); targets.splice(i, 1); } }
         }
         for (const s of S) { const stt = !core.st ? "lock" : core.isDone(s) ? "done" : !core.available(s) ? "lock" : s.optional ? "star" : "open"; if (s.bang.userData.st !== stt) { s.bang.material.map = bangTex[stt]; s.bang.material.needsUpdate = true; s.bang.userData.st = stt; } s.bang.position.y = 3 + (stt === "open" || stt === "star" ? Math.sin(tt * 4 + s.i) * 0.1 : 0); }

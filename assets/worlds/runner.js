@@ -19,7 +19,7 @@
       const S = core.stations;
       S.forEach((s) => { s.place = s.optional ? "⭐ маршрут" : s.final ? "фініш" : "траса"; });
       const renderer = new THREE.WebGLRenderer({ antialias: !matchMedia("(pointer:coarse)").matches, powerPreference: "high-performance" });
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
       stage.append(renderer.domElement);
       const scene = new THREE.Scene();
       const sky = new THREE.Color(TH.sky || "#7dd3fc");
@@ -160,7 +160,7 @@
       }
       function gameHud() {
         const g = game, it = g.items[g.k];
-        g.hud.innerHTML = it ? `<small>${core.esc(g.v.q)} · ${g.k + 1} з ${g.items.length}</small><div class="big">«${core.esc(it[0])}»</div><small>Забіжи в смугу з правильною відповіддю: ${g.v.lanes.map((l) => "«" + core.esc(l) + "»").join(" · ")}</small>` : "";
+        g.hud.innerHTML = it ? `<small>${core.esc(g.v.q)} · ${g.k + 1} з ${g.items.length}</small><div class="big">«${core.esc(it[0])}»</div>${g.k === 0 ? `<small>Забіжи в смугу з правильною відповіддю: ${g.v.lanes.map((l) => "«" + core.esc(l) + "»").join(" · ")}</small>` : ""}` : ""; // підказку — лише на перших воротах, щоб банер не закривав трасу
       }
       function passGate(o) {
         const g = game, n = g.v.lanes.length, chosen = n === 2 ? (lane < 0 ? 0 : 1) : lane + 1;

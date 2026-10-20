@@ -17,7 +17,7 @@
       const THREE = window.THREE, TH = core.Q.theme || {};
       const S = core.stations;
       const renderer = new THREE.WebGLRenderer({ antialias: !matchMedia("(pointer:coarse)").matches });
-      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.5));
+      renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
       stage.append(renderer.domElement);
       const scene = new THREE.Scene(), sky = new THREE.Color(TH.sky || "#a5d8ff");
       scene.background = sky; scene.fog = new THREE.Fog(sky, 35, 110);
@@ -104,7 +104,7 @@
         const nm = sprite(s.npc.name, { bg: "#ffffff", fg: "#1f2937", size: 54, sx: 2.6, sy: 0.65 }); nm.position.set(s.pos.x, s.pos.y + 2.75, s.pos.z - 1.5); scene.add(nm); s.nm = nm;
         const tp = sprite(s.topic || "", { bg: s.optional ? "#ca8a04" : "#4f46e5", size: 52, sx: 4.2, sy: 0.75 }); tp.position.set(s.pos.x, s.pos.y + 6, s.pos.z); scene.add(tp);
         const pr = (TH.props || [])[s.i % (TH.props || [1]).length];
-        if (pr) { const e = sprite(pr, { bg: "rgba(0,0,0,0)", w: 256, h: 256, size: 200, sx: 2.2, sy: 2.2 }); e.position.set(s.pos.x + 3.2, s.pos.y + 2.2, s.pos.z - 3.2); scene.add(e); props.push({ m: e, bob: Math.random() * 6, y: e.position.y }); }
+        if (pr) { const e = sprite(pr, { bg: "rgba(0,0,0,0)", w: 256, h: 256, size: 200, sx: 2.2, sy: 2.2 }); e.position.set(s.pos.x + 3.2, s.pos.y + 2.2, s.pos.z - 3.2); scene.add(e); s.prop = e; props.push({ m: e, bob: Math.random() * 6, y: e.position.y }); }
         block(s.pos.x, s.pos.y + 1.6, s.pos.z - 1.5, 0.9, 1.6, 0.6, new THREE.MeshBasicMaterial({ visible: false }));
       });
       const bangTex = { open: textTex("!", { bg: "#facc15", fg: "#422006", w: 128, h: 128, size: 100 }), star: textTex("★", { bg: "#eab308", fg: "#422006", w: 128, h: 128, size: 100 }), done: textTex("✓", { bg: "#16a34a", fg: "#fff", w: 128, h: 128, size: 100 }), lock: textTex("…", { bg: "#cbd5e1", fg: "#475569", w: 128, h: 128, size: 100 }) };
@@ -170,7 +170,7 @@
           const lab = sprite(t, { bg: "#78350f", size: 60, sx: 1.9, sy: 0.45 }); lab.position.set(x, c.y + 1.35, z); scene.add(lab);
           return { t, gi, m, lab, placed: null, x, z };
         });
-        s.mesh.visible = s.bang.visible = s.nm.visible = false;
+        s.mesh.visible = s.bang.visible = s.nm.visible = false; if (s.prop) s.prop.visible = false;
         game = { v, s, chests, items, carry: null, done, hud: core.el("div", "gamehud") };
         document.body.append(game.hud); hud();
         P.x = c.x - 4; P.z = c.z + 4; P.y = c.y; P.vy = 0; paused = false; pad.hidden = jbtn.hidden = !coarse;
@@ -191,7 +191,7 @@
               const bad = g.items.filter((o) => o.placed !== o.gi);
               setTimeout(() => {
                 g.items.forEach((o) => { scene.remove(o.m); scene.remove(o.lab); }); g.chests.forEach((c) => { scene.remove(c.m); scene.remove(c.lab); });
-                g.hud.remove(); g.s.mesh.visible = g.s.bang.visible = g.s.nm.visible = true; game = null; paused = true; pad.hidden = jbtn.hidden = true;
+                g.hud.remove(); g.s.mesh.visible = g.s.bang.visible = g.s.nm.visible = true; if (g.s.prop) g.s.prop.visible = true; game = null; paused = true; pad.hidden = jbtn.hidden = true;
                 g.done(!bad.length, (bad.length ? "Помилки: " + bad.map((o) => `«${core.esc(o.t)}» — ${core.esc(g.v.groups[o.gi])}`).join("; ") + ". " : "") + core.esc(g.v.x || ""), `У правильних скринях: ${g.items.length - bad.length} з ${g.items.length}.`);
               }, 600);
             }
@@ -236,8 +236,10 @@
         arrow.visible = !!nx && !paused && Math.hypot(nx.pos.x - P.x, nx.pos.z - P.z) > 5;
         if (arrow.visible) { const a = Math.atan2(nx.pos.x - P.x, nx.pos.z - P.z); arrow.position.set(P.x + Math.sin(a) * 1.4, P.y + 0.3, P.z + Math.cos(a) * 1.4); arrow.rotation.set(Math.PI / 2, a, 0, "YXZ"); arrow.material.color.set(nx.optional ? 0xeab308 : 0x4f46e5); }
         // камера ззаду-згори
-        camPos.lerp(new THREE.Vector3(P.x, P.y + 8.5, P.z + 12), Math.min(1, dt * 4));
-        camera.position.copy(camPos); camera.lookAt(P.x, P.y + 1, P.z - 2.5);
+        // на вузькому екрані камера вища й далі: у міні-грі видно весь острів зі скринями
+        const far = camera.aspect < 1 ? (game ? 1.55 : 1.3) : (game ? 1.2 : 1);
+        camPos.lerp(new THREE.Vector3(game ? game.s.pos.x : P.x, P.y + 8.5 * far, P.z + 12 * far), Math.min(1, dt * 4));
+        camera.position.copy(camPos); camera.lookAt(game ? game.s.pos.x : P.x, P.y + 1, P.z - 2.5);
         renderer.render(scene, camera);
         requestAnimationFrame(frame);
       }

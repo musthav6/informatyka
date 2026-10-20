@@ -57,7 +57,7 @@
   let toastT = 0;
   function toast(t, ms = 2600) { const e = $("#toast"); e.textContent = t; e.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { e.hidden = true; }, ms); }
   function loadScript(src) { return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = bad; document.head.append(s); }); }
-  const VER = "202610202148"; // мітка для світів і quests/*.js — міняти разом із bump_version.py
+  const VER = "202610211330"; // мітка для світів і quests/*.js — міняти разом із bump_version.py
 
   /* ================================================================ УРОК */
   function run(Q, W) {
@@ -273,7 +273,7 @@
         let launched = false;
         footer([["▶ Грати", "pri", () => {
           if (launched) return; launched = true; // подвійне натискання не запускає дві гри
-          dlg.hidden = true; document.body.classList.add("ingame");
+          dlg.hidden = true; document.body.classList.add("ingame"); $("#toast").hidden = true;
           world.challenge(p, R, (ok, x, extra) => {
             document.body.classList.remove("ingame");
             record(ok); dlg.hidden = false; dBody.innerHTML = "";
