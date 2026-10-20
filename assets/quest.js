@@ -1,28 +1,36 @@
 /* =====================================================================
-   Квести: учень ходить картою, підходить до персонажів і виконує завдання.
+   Квести: учень ходить картою й розмовляє з персонажами.
    Сторінка: quest.html?q=<id файлу в quests/>, наприклад quest.html?q=7-07.
+
+   Урок-квест замість конспекту: персонажі розповідають теорію, учень записує в паперовий зошит,
+   гра перевіряє пропущеними словами й діями. Станції відкриваються по черзі.
 
    Формат файлу quests/<id>.js:
    QUEST.add({
      id, grade, lesson, title, intro,
-     rooms: [{ id, name, decor: "cinema|booth|pcs|workshop|library|museum", row: 0|1, col: 0|1|2, star? }],
+     rooms: [{ id, name, decor: "cinema|booth|pcs|workshop|library|museum", row: 0|1, col: 0|1|2 }],
      stations: [{
-       room, at: [fx, fy] (частки кімнати), star?,
+       room, at: [fx, fy] (частки кімнати), topic,
+       optional?  — ⭐ (відкривається після всіх основних, можна пропустити),
+       final?     — останній персонаж; після нього — результат,
        npc: { name, look: "#колір", hat: "cap|bun|long|short|beret|pony|messy", glasses? },
-       say: "репліка персонажа",
-       task: { type, ... }   — варіанти беруться випадково для кожного учня:
-         choice  { v: [["питання", ["правильна", "хибна", …], "пояснення"], …] }
-         calc    { gen: (R) => ({ q, ans: число, unit, x }) }      — числа свої для кожного учня
-         order   { v: [{ q, items: [у правильному порядку], x }] }
-         sort    { v: [{ q, groups: [2 назви], items: [["текст", № групи]], x }] }
-         spot    { v: [{ q, target: "top|tools|stage|palette|params|layers|timeline|play" }] }  — вікно «Аніматора»
-         markers { v: [{ goal: "move|size|rotate", q }] }          — маркери вибраного об'єкта
-         spin    { then: [варіанти choice] }                        — тауматроп, потім питання
-         copy    { v: [{ term, text }] }                            — переписати визначення (вставлення вимкнено)
-       note: { term?, def?, rule? }  — картка «✍️ Запиши в зошит» після завдання
+       steps: [ — кроки розмови, по одному на екран:
+         { t: "say", text: "**жирне** можна", table?: [[заголовки], [рядок]…], write?: true }  — write: перепиши таблицю
+         { t: "write", term?, def?, rule?, sec? }  — «✍️ Запиши»; кнопка оживає через sec (або за довжиною тексту)
+         { t: "demo", kind: "fps|flip|tour|spin|markers", text }  — жива демонстрація; «Далі» — коли спробував
+         { t: "gate" }  — у фіналі: запропонувати ⭐ станції, якщо їх не пройдено
+         { t: "check", type, … }  — 1 бал; текст сховано, учень користується зошитом:
+           cloze   { text: "… [[слово|варіант]] …" }                       — впиши пропущені слова
+           choice  { v: [["питання", ["правильна", "хибна", …], "пояснення"], …] }
+           calc    { gen: (R) => ({ q, ans: число, unit, x }) }           — числа свої для кожного учня
+           order   { v: [{ q, items: [у правильному порядку], x }] }
+           spot    { v: [{ q, target: "top|tools|stage|palette|params|layers|timeline|play" }] }
+           markers { v: [{ goal: "move|size|rotate", q }] }
+           form    {}  — «Новий проєкт» Стрибок_Прізвище, 640×480, 24, світло-блакитний, «Зберегти»
+       ]
      }]
    });
-   Кожна станція — 1 бал, оцінка = бали / станції · 12. Результат летить у ту саму таблицю, що й тести.
+   Оцінка = бали за перевірки / кількість перевірок · 12. Результат летить у ту саму таблицю, що й тести.
    ===================================================================== */
 (function () {
   "use strict";
@@ -250,18 +258,25 @@
     const rooms = Q.rooms.map((r) => ({ ...r, rr: roomRect(r) }));
     const roomOf = (id) => rooms.find((r) => r.id === id);
     const deco = rooms.map((r) => ({ room: r, d: DECOR[r.decor](r.rr) }));
-    const stations = Q.stations.map((s, i) => { const rr = roomOf(s.room).rr; return { ...s, i, x: rr.x + s.at[0] * rr.w, y: rr.y + s.at[1] * rr.h, roomName: roomOf(s.room).name }; });
+    const stations = Q.stations.map((s, i) => { const rr = roomOf(s.room).rr; return { ...s, i, x: rr.x + s.at[0] * rr.w, y: rr.y + s.at[1] * rr.h, roomName: roomOf(s.room).name.replace("⭐ ", "") }; });
     const npcSolid = (s) => rect(s.x - 13, s.y - 6, 26, 22);
     const WALLS = buildWalls(rooms);
     SOLIDS = WALLS.concat(...deco.map((d) => d.d.solids)).concat(stations.map(npcSolid));
     buildGrid();
     const N = stations.length;
+    const CHECKS = [];
+    stations.forEach((s) => s.steps.forEach((p, k) => { if (p.t === "check") CHECKS.push(`${s.i}:${k}`); }));
 
     /* -------- стан */
-    let st = null; // { cls, name, start, done: {i: 0|1}, notes: [...], viol, x, y }
+    let st = null; // { cls, name, start, done: {i: 1}, checks: {"i:k": 0|1}, notes: [i…], viol, x, y }
     const saveSt = () => { if (st) store.set(KEY + ":run", st); };
     const P = { x: 380, y: 550, dir: 1, path: null, goal: null, moving: false };
     let paused = true, openSt = null;
+    const isDone = (s) => !!(st && st.done[s.i]);
+    const basics = stations.filter((s) => !s.optional && !s.final);
+    // доступна, якщо пройдено всі обов'язкові станції перед нею; ⭐ і фінал — після всіх обов'язкових
+    const available = (s) => !st ? false : (s.optional || s.final) ? basics.every(isDone) : basics.filter((b) => b.i < s.i).every(isDone);
+    const score = () => CHECKS.reduce((a, k) => a + (st.checks[k] || 0), 0);
 
     /* -------- DOM */
     const cv = $("#world"), ctx = cv.getContext("2d");
@@ -269,7 +284,7 @@
     $("#qTitle").textContent = Q.title;
     $("#sTitle").textContent = Q.title;
     $("#sIntro").textContent = Q.intro;
-    $("#sEyebrow").textContent = `${Q.grade} клас · урок ${Q.lesson} · 🕹️ квест`;
+    $("#sEyebrow").textContent = `${Q.grade} клас · урок ${Q.lesson} · 🕹️ урок-квест`;
     $("#backLink").href = `index.html?l=${Q.grade}-${String(Q.lesson).padStart(2, "0")}`;
 
     const clsSel = $("#cls"), nameIn = $("#name"), goBtn = $("#go");
@@ -281,42 +296,39 @@
     clsSel.onchange = nameIn.oninput = ready; ready();
 
     const saved = store.get(KEY + ":run", null);
-    if (saved && !saved.finished && Object.keys(saved.done).length) {
+    if (saved && !saved.finished && saved.done && Object.keys(saved.done).length) {
       $("#resume").hidden = false;
-      $("#resume").innerHTML = `Є незавершений квест: <b>${esc(saved.name)}</b>, ${Object.keys(saved.done).length} з ${N}. Натисни «Почати» з тим самим іменем — продовжиш з того місця.`;
+      $("#resume").innerHTML = `Є незавершений урок: <b>${esc(saved.name)}</b>, пройдено ${Object.keys(saved.done).length} з ${N}. Натисни «Почати» з тим самим іменем — продовжиш з того місця.`;
     }
 
     goBtn.onclick = () => {
       const cls = clsSel.value, name = nameIn.value.trim().replace(/\s+/g, " ");
       store.set("qz:me", { cls, name });
       const prev = store.get(KEY + ":run", null);
-      if (prev && !prev.finished && prev.cls === cls && personKey(prev.name) === personKey(name)) st = prev;
-      else st = { cls, name, start: Date.now(), done: {}, notes: [], viol: 0, x: 380, y: 550 };
+      if (prev && !prev.finished && prev.checks && prev.cls === cls && personKey(prev.name) === personKey(name)) st = prev;
+      else st = { cls, name, start: Date.now(), done: {}, checks: {}, notes: [], viol: 0, x: 380, y: 550 };
       P.x = st.x; P.y = st.y;
       $("#start").hidden = true; hud.hidden = false; paused = false;
       renderHud(); saveSt();
-      toast("Підходь до тих, у кого над головою «!» — клацни по них або підійди й натисни E", 5000);
+      toast("Іди до того, у кого над головою «!» — клацни по ньому або підійди й натисни E", 5000);
     };
 
     /* -------- HUD */
     function renderHud() {
-      const done = Object.keys(st.done).length, score = Object.values(st.done).reduce((a, b) => a + b, 0);
-      prog.textContent = `Виконано ${done} з ${N}`;
+      const done = stations.filter(isDone).length;
+      prog.textContent = `Пройдено ${done} з ${N}`;
       bar.style.width = (done / N * 100) + "%";
       list.innerHTML = "";
       stations.forEach((s) => {
-        const li = el("li", s.i in st.done ? (st.done[s.i] ? "ok" : "bad") : "");
-        li.innerHTML = `<span class="box"></span><span><b>${esc(s.npc.name)}</b><small>${esc(s.roomName.replace("⭐ ", ""))}${s.star ? " · ⭐" : ""}</small></span>`;
+        const li = el("li", isDone(s) ? "ok" : available(s) ? "" : "lock");
+        li.innerHTML = `<span class="box"></span><span><b>${esc(s.topic || s.npc.name)}</b><small>${esc(s.npc.name)} · ${esc(s.roomName)}${s.optional ? " · ⭐ на 12" : ""}</small></span>`;
         li.onclick = () => { goTo(s); };
         list.appendChild(li);
       });
       $("#bookN").textContent = st.notes.length;
-      void score;
     }
     function nextStation() {
-      let best = null, bd = 1e9;
-      for (const s of stations) if (!(s.i in st.done)) { const d = Math.hypot(s.x - P.x, s.y - P.y) + (s.star ? 1500 : 0); if (d < bd) { bd = d; best = s; } }
-      return best;
+      return stations.find((s) => !isDone(s) && available(s) && !s.final) || stations.find((s) => !isDone(s) && available(s)) || null;
     }
     $("#listToggle").onclick = () => hud.classList.toggle("open");
 
@@ -325,21 +337,26 @@
     const KM = { ArrowUp: "u", KeyW: "u", ArrowDown: "d", KeyS: "d", ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r" };
     addEventListener("keydown", (e) => {
       if (e.target.closest && e.target.closest("input,textarea,select")) return;
-      if (KM[e.code]) { keys.add(KM[e.code]); P.path = null; P.goal = null; e.preventDefault(); }
+      if (KM[e.code] && !paused) { keys.add(KM[e.code]); P.path = null; P.goal = null; e.preventDefault(); }
       if ((e.code === "KeyE" || e.code === "Enter" || e.code === "Space") && !paused && near) { e.preventDefault(); openStation(near); }
       if (e.code === "KeyN" && !paused) openBook();
-      if (e.code === "Escape") { closeBook(); }
+      if (e.code === "Escape") closeBook();
     });
     addEventListener("keyup", (e) => { if (KM[e.code]) keys.delete(KM[e.code]); });
     addEventListener("blur", () => keys.clear());
 
     function goTo(s) {
       if (paused) return;
+      hud.classList.remove("open");
+      if (!available(s)) { lockedToast(s); return; }
       const path = findPath(P, s.x, s.y, TALK_R - 30);
       if (path) { P.path = path; P.goal = s; }
-      hud.classList.remove("open");
     }
-    let cam = { x: P.x, y: P.y, z: 1 };
+    function lockedToast(s) {
+      const nx = nextStation();
+      toast(`${s.optional || s.final ? "Сюди — після всіх основних станцій." : "Не поспішай — усе по черзі."} Зараз іди до: ${nx ? nx.npc.name + " (" + nx.roomName + ")" : ""}`, 3500);
+    }
+    let cam = { x: P.x, y: P.y, z: 1 }, marker = null;
     cv.addEventListener("pointerdown", (e) => {
       if (paused) return;
       const r = cv.getBoundingClientRect(), wx = (e.clientX - r.left - r.width / 2) / cam.z + cam.x, wy = (e.clientY - r.top - r.height / 2) / cam.z + cam.y;
@@ -348,7 +365,6 @@
       const path = findPath(P, wx, wy, 14);
       if (path) { P.path = path; P.goal = null; marker = { x: wx, y: wy, t: 0 }; }
     });
-    let marker = null;
 
     let near = null;
     function update(dt) {
@@ -372,7 +388,7 @@
       if (P.goal && near === P.goal && !P.path) { const g = P.goal; P.goal = null; openStation(g); }
       if (near && !paused) { talkBtn.hidden = false; talkBtn.innerHTML = `💬 ${esc(near.npc.name)} <kbd>E</kbd>`; } else talkBtn.hidden = true;
       const nx = nextStation();
-      nextEl.innerHTML = nx ? `${nx.star ? "⭐ " : ""}Далі: <b>${esc(nx.npc.name)}</b> · ${esc(nx.roomName.replace("⭐ ", ""))}` : "Усі станції пройдено!";
+      nextEl.innerHTML = nx ? `${nx.optional ? "⭐ " : ""}Далі: <b>${esc(nx.npc.name)}</b> · ${esc(nx.roomName)}` : "Урок пройдено!";
       if (st && Math.random() < dt) { st.x = Math.round(P.x); st.y = Math.round(P.y); saveSt(); }
     }
     talkBtn.onclick = () => { if (near) openStation(near); };
@@ -392,25 +408,19 @@
       cam.x = WW * z > W ? clamp(cam.x, hw, WW - hw) : WW / 2; cam.y = WH * z > H ? clamp(cam.y, hh, WH - hh) : WH / 2;
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = "#1e293b"; ctx.fillRect(0, 0, W, H);
       ctx.setTransform(DPR * z, 0, 0, DPR * z, DPR * (W / 2 - cam.x * z), DPR * (H / 2 - cam.y * z));
-      // підлоги
       tileFloor(rect(30, COR[0], WW - 60, COR[1] - COR[0]), "#e2e8f0", "#d8dee8", 40);
-      for (const { room, d } of deco) { tileFloor(room.rr, d.floor[0], d.floor[1], 32); }
-      // килимова доріжка й старт
+      for (const { room, d } of deco) tileFloor(room.rr, d.floor[0], d.floor[1], 32);
       ctx.fillStyle = "rgba(79,70,229,.12)"; ctx.fillRect(40, 528, WW - 80, 44);
       label(ctx, "СТАРТ →", 344, 550, 12, "#64748b", "right");
-      for (const { room } of deco) { const dx = doorX(room.rr), y = room.row ? COR[1] + 18 : COR[0] - 18; label(ctx, room.name, dx, room.row ? COR[1] - 20 : COR[0] + 20, 14, "#334155"); void y; }
+      for (const { room } of deco) label(ctx, room.name, doorX(room.rr), room.row ? COR[1] - 20 : COR[0] + 20, 14, "#334155");
       for (const { d } of deco) d.draw(ctx, tt);
-      // стіни
       ctx.fillStyle = "#475569"; for (const w of WALLS) ctx.fillRect(w.x, w.y, w.w, w.h);
-      // ціль
       if (marker) { marker.t += dt; ctx.strokeStyle = `rgba(79,70,229,${Math.max(0, 1 - marker.t)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(marker.x, marker.y, 8 + marker.t * 14, 0, 7); ctx.stroke(); if (marker.t > 1) marker = null; }
-      // стрілка до наступної станції
       const nx = st && nextStation();
       if (nx && !paused && Math.hypot(nx.x - P.x, nx.y - P.y) > TALK_R + 30) {
         const a = Math.atan2(nx.y - P.y, nx.x - P.x); ctx.save(); ctx.translate(P.x + Math.cos(a) * 34, P.y + Math.sin(a) * 34); ctx.rotate(a);
-        ctx.fillStyle = nx.star ? "#eab308" : "#4f46e5"; ctx.globalAlpha = 0.75 + Math.sin(tt * 5) * 0.2; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
+        ctx.fillStyle = nx.optional ? "#eab308" : "#4f46e5"; ctx.globalAlpha = 0.75 + Math.sin(tt * 5) * 0.2; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
       }
-      // персонажі в порядку глибини
       const people = stations.map((s) => ({ y: s.y, f: () => drawNpc(s) })).concat([{ y: P.y, f: () => drawPerson(ctx, P.x, P.y, "#2563eb", { walk: P.moving, t: tt, dir: P.dir, hat: "short", hair: "#1f2937" }) }]);
       people.sort((a, b) => a.y - b.y).forEach((p) => p.f());
       requestAnimationFrame(frame);
@@ -420,93 +430,331 @@
       ctx.font = "600 11px Rubik, system-ui, sans-serif"; const w = ctx.measureText(s.npc.name).width + 12;
       rrect(ctx, s.x - w / 2, s.y + 20, w, 16, 8); ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.fill();
       label(ctx, s.npc.name, s.x, s.y + 28.5, 11, "#1f2937");
-      const done = st && s.i in st.done, by = s.y - 44 + (done ? 0 : Math.sin(tt * 4 + s.i) * 3);
+      const done = isDone(s), open = available(s), by = s.y - 44 + (!done && open ? Math.sin(tt * 4 + s.i) * 3 : 0);
       ctx.beginPath(); ctx.arc(s.x, by, 11, 0, 7);
-      ctx.fillStyle = done ? (st.done[s.i] ? "#16a34a" : "#ea580c") : s.star ? "#eab308" : "#facc15"; ctx.fill();
+      ctx.fillStyle = done ? "#16a34a" : !open ? "#cbd5e1" : s.optional ? "#eab308" : "#facc15"; ctx.fill();
       ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1.5; ctx.stroke();
-      label(ctx, done ? (st.done[s.i] ? "✓" : "✗") : s.star ? "★" : "!", s.x, by + 1, 14, done ? "#fff" : "#422006");
+      label(ctx, done ? "✓" : !open ? "…" : s.optional ? "★" : "!", s.x, by + (open || done ? 1 : -3), 14, done ? "#fff" : open ? "#422006" : "#64748b");
     }
     requestAnimationFrame(frame);
 
     /* -------- вихід із вкладки */
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && st && !st.finished && $("#start").hidden) { st.viol++; saveSt(); toast("Виходити з квесту не можна — це фіксується.", 3500); }
+      if (document.hidden && st && !st.finished && $("#start").hidden) { st.viol++; saveSt(); toast("Виходити з уроку не можна — це фіксується.", 3500); }
     });
 
-    /* ============================================================ ДІАЛОГ СТАНЦІЇ */
+    /* ============================================================ РОЗМОВА: КРОКИ СТАНЦІЇ */
     const dlg = $("#dlg"), dBody = $("#dBody");
     function openStation(s) {
-      if (openSt) return;
-      openSt = s; paused = true; $("#toast").hidden = true; keys.clear(); P.path = null; talkBtn.hidden = true;
-      $("#dWho").textContent = s.npc.name; $("#dWhere").textContent = s.roomName + (s.star ? " · ⭐ для 12 балів" : "");
+      if (openSt || !st) return;
+      if (!available(s)) { lockedToast(s); return; }
+      openSt = s; paused = true; keys.clear(); P.path = null; talkBtn.hidden = true; $("#toast").hidden = true;
+      $("#dWho").textContent = s.npc.name; $("#dWhere").textContent = (s.topic || "") + " · " + s.roomName;
       $("#dAva").style.background = s.npc.look; $("#dAva").textContent = s.npc.name.split(" ").pop()[0];
-      dBody.innerHTML = "";
-      if (s.i in st.done) {
-        dBody.append(el("p", "say", "Дякую, ти мені вже допоміг(ла)! Зазирни до інших — над ними «!»."));
-        if (s.note) dBody.append(noteCard(s.note));
-        footer([["Добре", "pri", closeDlg]]);
-      } else {
-        dBody.append(el("p", "say", esc(s.say)));
-        TASK[s.task.type](s, dBody, (ok, x) => finish(s, ok, x));
-      }
       dlg.hidden = false;
-      setTimeout(() => { const f = dlg.querySelector("input,textarea,button.opt,button.pri"); if (f && matchMedia("(pointer:fine)").matches) f.focus(); }, 30);
+      if (isDone(s)) {
+        dBody.innerHTML = ""; $("#dStep").textContent = "";
+        dBody.append(el("p", "say", "Ми вже поговорили! Можу розповісти ще раз — перевірки при цьому вже не рахуються."));
+        footer([["Розкажи ще раз", "", () => step(s, 0)], ["Добре", "pri", closeDlg]]);
+      } else step(s, 0);
     }
     function closeDlg() {
       dlg.hidden = true; openSt = null; paused = false;
-      if (Object.keys(st.done).length === N && !st.finished) finishAll();
+      const fin = stations.find((x) => x.final);
+      if (fin && isDone(fin) && !st.finished) finishAll();
     }
     function footer(btns) {
       const f = $("#dFoot"); f.innerHTML = "";
       for (const [t, cls, fn, dis] of btns) { const b = el("button", "btn " + (cls || ""), t); b.onclick = fn; if (dis) b.disabled = true; f.append(b); }
-      return f;
+      return [...f.children];
     }
-    function finish(s, ok, x) {
-      st.done[s.i] = ok ? 1 : 0;
-      if (s.note && !st.notes.some((n) => n.i === s.i)) st.notes.push({ i: s.i, ...s.note });
-      saveSt(); renderHud();
-      const fb = el("div", "fb " + (ok ? "ok" : "bad"), (ok ? "✅ Правильно!" : "❌ Не зовсім.") + (x ? ` <span>${x}</span>` : ""));
-      dBody.append(fb);
-      if (s.note) dBody.append(noteCard(s.note, true));
-      footer([["Далі →", "pri", closeDlg]]);
-      fb.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    function step(s, k) {
+      dBody.innerHTML = ""; dBody.scrollTop = 0; $("#dlg").scrollTop = 0;
+      const steps = s.steps;
+      if (k >= steps.length) {
+        const was = isDone(s); st.done[s.i] = 1; saveSt(); renderHud(); closeDlg();
+        if (!was) toast(s.final ? "Урок пройдено!" : `✓ ${s.topic || s.npc.name} — пройдено`, 2500);
+        return;
+      }
+      $("#dStep").textContent = `${k + 1} / ${steps.length}`;
+      const p = steps[k], next = () => step(s, k + 1);
+      STEP[p.t](s, p, `${s.i}:${k}`, next);
+    }
+    // **жирне** у репліках
+    const rich = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
+    const qp = (t) => el("p", "q", rich(t));
+    function table(rows) {
+      const t = el("table", "tbl");
+      rows.forEach((r, i) => { const tr = el("tr"); r.forEach((c) => tr.append(el(i ? "td" : "th", "", esc(c)))); t.append(tr); });
+      return t;
+    }
+    const noteLabel = (p, s) => p.term ? p.term : p.table ? `${s.topic} — таблиця` : (p.rule || "").split("\n")[0].slice(0, 60);
+    function addNote(s, p, k) {
+      const id = `${s.i}:${k}`;
+      if (!st.notes.some((n) => n.id === id)) { st.notes.push({ id, label: noteLabel(p, s), term: p.term, def: p.def, rule: p.rule, table: p.table }); saveSt(); renderHud(); }
       $("#bookBtn").classList.add("pulse"); setTimeout(() => $("#bookBtn").classList.remove("pulse"), 1600);
     }
-    function noteCard(n, fresh) {
+    // кнопка «Я записав(ла)» оживає через стільки секунд, скільки треба, щоб записати
+    function writeButton(s, p, k, text, next) {
+      const sec = p.sec || clamp(Math.round(text.length / 6), 8, 25);
+      const [b] = footer([[`✍️ Я записав(ла) · ${sec}`, "pri", () => { addNote(s, p, k); next(); }, true]]);
+      if (isDone(s)) { b.disabled = false; b.textContent = "Далі →"; return; }
+      let left = sec;
+      const tm = setInterval(() => { left--; if (!document.body.contains(b)) return clearInterval(tm); if (left <= 0) { clearInterval(tm); b.disabled = false; b.textContent = "✍️ Я записав(ла)"; } else b.textContent = `✍️ Я записав(ла) · ${left}`; }, 1000);
+    }
+    const STEP = {
+      say(s, p, k, next) {
+        dBody.append(el("p", "say", rich(p.text)));
+        if (p.table) dBody.append(p.write ? noteBox(table(p.table), "✍️ Перепиши таблицю в зошит") : table(p.table));
+        if (p.write) writeButton(s, p, k, p.table.flat().join(" "), next);
+        else footer([["Далі →", "pri", next]]);
+      },
+      write(s, p, k, next) {
+        dBody.append(el("p", "hint", "📒 Відкрий паперовий зошит і запиши. Пізніше тебе спитають — і текст уже не показуватимуть."));
+        dBody.append(noteCard(p));
+        writeButton(s, p, k, (p.term || "") + (p.def || "") + (p.rule || ""), next);
+      },
+      demo(s, p, k, next) {
+        if (p.text) dBody.append(el("p", "say", rich(p.text)));
+        const [b] = footer([["Далі →", "pri", next, true]]);
+        DEMO[p.kind](dBody, () => { b.disabled = false; });
+        if (isDone(s)) b.disabled = false;
+      },
+      check(s, p, k, next) {
+        if (k in st.checks) {
+          dBody.append(el("p", "say", "Цю перевірку ти вже пройшов(ла) — вона зарахована."));
+          footer([["Далі →", "pri", next]]); return;
+        }
+        dBody.append(el("div", "chk", "🔎 Перевірка — текст сховано, користуйся своїм зошитом"));
+        TASK[p.type]({ task: p, sname: st.name }, dBody, (ok, x) => {
+          if (!isDone(s)) { st.checks[k] = ok ? 1 : 0; saveSt(); }
+          const fb = el("div", "fb " + (ok ? "ok" : "bad"), (ok ? "✅ Правильно!" : "❌ Не зовсім.") + (x ? ` <span>${x}</span>` : ""));
+          dBody.append(fb); footer([["Далі →", "pri", next]]);
+          fb.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        });
+      },
+      gate(s, p, k, next) {
+        const left = stations.filter((x) => x.optional && !isDone(x));
+        if (!left.length) return next();
+        dBody.append(el("p", "say", rich(`Вітаю, стажере! Можна складати перевірку вже зараз — це до **9 балів**. А хто хоче **12** — спершу зазирни в ⭐ Музей анімації: там ще ${left.length} ${left.length === 1 ? "станція" : "станції"}. Після перевірки повернутися вже не вийде.`)));
+        footer([["⭐ Іду в музей", "", closeDlg], ["Складати зараз", "pri", next]]);
+      }
+    };
+    function noteBox(inner, tag) { const c = el("div", "note"); c.append(el("div", "tag", tag), inner); return c; }
+    function noteCard(n) {
       const c = el("div", "note" + (n.term && n.term.startsWith("⭐") ? " star" : ""));
-      c.innerHTML = `<div class="tag">✍️ Запиши в зошит${fresh ? " · додано в 📒" : ""}</div>` + (n.term ? `<p><b>${esc(n.term.replace("⭐ ", ""))}</b> — ${esc(n.def)}</p>` : "") + (n.rule ? `<p class="rule">${esc(n.rule)}</p>` : "");
+      c.innerHTML = `<div class="tag">✍️ Запиши в зошит</div>` + (n.term ? `<p><b>${esc(n.term.replace("⭐ ", ""))}</b> — ${esc(n.def)}</p>` : "") + (n.rule ? `<p class="rule">${rich(n.rule)}</p>` : "");
+      if (n.table) c.append(table(n.table));
       return c;
     }
 
-    /* ---------------- типи завдань: (станція, контейнер, done(ok, пояснення)) */
-    const qp = (t) => el("p", "q", esc(t));
+    /* ---------------- демонстрації: (контейнер, ready) — ready() відкриває «Далі» */
+    const NS = "http://www.w3.org/2000/svg";
+    const DEMO = {
+      fps(box, ready) {
+        const c = el("canvas", "demo"); c.width = 520; c.height = 220; box.append(c);
+        const row = el("div", "seg"); box.append(row);
+        const lab = el("p", "hint", ""); box.append(lab);
+        const g = c.getContext("2d"); let fps = 2, tried = new Set([2]), fr = 0, acc = 0, last = performance.now();
+        [2, 4, 8, 12, 24].forEach((v) => { const b = el("button", "sb" + (v === fps ? " sel" : ""), `${v} кадр/с`); b.onclick = () => { fps = v; tried.add(v); row.querySelectorAll(".sb").forEach((x) => x.classList.toggle("sel", x === b)); if (tried.size >= 3) ready(); }; row.append(b); });
+        const N = 24; // кадрів у циклі
+        (function loop(now) {
+          if (!document.body.contains(c)) return;
+          acc += (now - last) / 1000; last = now;
+          if (acc >= 1 / fps) { acc %= 1 / fps; fr = (fr + 1) % N; }
+          const t = fr / N, x = 40 + t * 440, y = 180 - Math.abs(Math.sin(t * Math.PI * 3)) * 130;
+          g.fillStyle = "#f8fafc"; g.fillRect(0, 0, 520, 220); g.fillStyle = "#94a3b8"; g.fillRect(20, 196, 480, 3);
+          g.beginPath(); g.arc(x, y, 16, 0, 7); g.fillStyle = "#f97316"; g.fill();
+          g.font = "600 14px Rubik, sans-serif"; g.fillStyle = "#475569"; g.textAlign = "left"; g.fillText(`кадр ${fr + 1} з ${N} · ${fps} кадр/с`, 16, 24);
+          lab.textContent = tried.size >= 3 ? "Порівняй: 2 кадр/с — ривками, 24 кадр/с — плавно." : `Спробуй ще ${3 - tried.size} ${3 - tried.size === 1 ? "варіант" : "варіанти"}.`;
+          requestAnimationFrame(loop);
+        })(last);
+      },
+      flip(box, ready) {
+        const c = el("canvas", "demo"); c.width = 520; c.height = 240; box.append(c);
+        const ctl = el("div", "flipctl"), rng = el("input"); rng.type = "range"; rng.min = 0; rng.max = 7; rng.value = 0; rng.setAttribute("aria-label", "Сторінка флікбука");
+        const play = el("button", "btn", "▶ Гортати"); ctl.append(rng, play); box.append(ctl);
+        const g = c.getContext("2d"), seen = new Set();
+        const ys = [190, 140, 100, 75, 70, 85, 120, 175];
+        const draw = () => {
+          const k = +rng.value; seen.add(k);
+          g.fillStyle = "#fffbeb"; g.fillRect(0, 0, 520, 240); g.strokeStyle = "#e7d9b0"; for (let y = 30; y < 240; y += 24) { g.beginPath(); g.moveTo(0, y); g.lineTo(520, y); g.stroke(); }
+          if (k > 0) { g.globalAlpha = 0.18; g.beginPath(); g.arc(150 + (k - 1) * 30, ys[k - 1], 18, 0, 7); g.fillStyle = "#f97316"; g.fill(); g.globalAlpha = 1; }
+          g.beginPath(); g.arc(150 + k * 30, ys[k], 18, 0, 7); g.fillStyle = "#f97316"; g.fill(); g.strokeStyle = "#9a3412"; g.lineWidth = 2; g.stroke();
+          g.fillStyle = "#57534e"; g.fillRect(40, 210, 440, 4);
+          g.font = "600 15px Rubik, sans-serif"; g.fillStyle = "#78350f"; g.textAlign = "left"; g.fillText(`Сторінка ${k + 1} з 8 — фаза ${k + 1}`, 14, 22);
+          if (seen.size === 8) ready();
+        };
+        rng.oninput = draw; draw();
+        let tm = 0; play.onclick = () => { clearInterval(tm); let k = 0; tm = setInterval(() => { if (!document.body.contains(c)) return clearInterval(tm); rng.value = k; draw(); if (++k > 7) clearInterval(tm); }, 120); };
+      },
+      tour(box, ready) {
+        const info = el("div", "say", "👆 Клацни будь-яку частину вікна.");
+        const win = animWindow((id, z) => {
+          z.classList.add("seen"); seen.add(id);
+          info.innerHTML = `<b>${esc(ZONES[id][0])}</b> — ${esc(ZONES[id][1])}<br><small class="muted">Переглянуто ${seen.size} з 8</small>`;
+          if (seen.size === 8) ready();
+        });
+        const seen = new Set(); box.append(win, info);
+      },
+      spin(box, ready) {
+        const c = el("canvas", "spin"); c.width = 440; c.height = 300; box.append(c);
+        const meter = el("div", "meter", "<i></i>"); box.append(meter);
+        const hold = el("button", "btn hold", "🌀 Крутити (тримай)"); box.append(hold);
+        const g = c.getContext("2d"); let ang = 0, w = 0, held = false, good = 0, fired = false;
+        const on = (e) => { e.preventDefault(); held = true; }, off = () => { held = false; };
+        hold.addEventListener("pointerdown", on); addEventListener("pointerup", off); hold.addEventListener("pointerleave", off);
+        const kd = (e) => { if (e.code === "Space") { e.preventDefault(); held = true; } }, ku = (e) => { if (e.code === "Space") held = false; };
+        addEventListener("keydown", kd); addEventListener("keyup", ku);
+        const side = (bird, a) => { g.globalAlpha = a; if (bird) { g.font = '72px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("🐦", 0, 4); } else { g.strokeStyle = "#334155"; g.lineWidth = 5; for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(k * 18, -50); g.lineTo(k * 18, 55); g.stroke(); } g.beginPath(); g.arc(0, -50, 38, Math.PI, 0); g.stroke(); g.beginPath(); g.moveTo(-42, 55); g.lineTo(42, 55); g.stroke(); } g.globalAlpha = 1; };
+        let last = performance.now();
+        (function loop(now) {
+          if (!document.body.contains(c)) { removeEventListener("keydown", kd); removeEventListener("keyup", ku); removeEventListener("pointerup", off); return; }
+          const dt = Math.min(0.05, (now - last) / 1000); last = now;
+          w = held ? Math.min(60, w + dt * 30) : Math.max(0, w - dt * 18); ang += w * dt;
+          g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 440, 300);
+          g.strokeStyle = "#a8a29e"; g.lineWidth = 2; g.beginPath(); g.moveTo(10, 150); g.lineTo(150, 150); g.moveTo(290, 150); g.lineTo(430, 150); g.stroke();
+          g.translate(220, 150); const sx = Math.cos(ang), fast = clamp((w - 22) / 20, 0, 1);
+          g.scale(fast > 0 ? 1 : Math.max(0.05, Math.abs(sx)), 1);
+          g.beginPath(); g.arc(0, 0, 100, 0, 7); g.fillStyle = "#fffbeb"; g.fill(); g.strokeStyle = "#a16207"; g.lineWidth = 4; g.stroke();
+          if (fast > 0) { side(true, 0.5 + fast * 0.5); side(false, 0.5 + fast * 0.5); } else side(sx > 0, 1);
+          meter.firstChild.style.width = (w / 60 * 100) + "%";
+          if (fast >= 1) good += dt; if (good > 1 && !fired) { fired = true; ready(); toast("Пташка в клітці! 🐦"); }
+          requestAnimationFrame(loop);
+        })(last);
+      },
+      markers(box, ready) {
+        const used = new Set(), lab = el("p", "hint", "Спробовано: —");
+        markerSim(box, null, (kind) => { used.add(kind); lab.textContent = "Спробовано: " + [...used].map((x) => ({ move: "центральний (переміщення)", size: "кутовий (розмір)", rotate: "верхній круглий (поворот)" }[x])).join(", ") + (used.size === 3 ? " — усі три!" : ""); if (used.size === 3) ready(); });
+        box.append(lab);
+      }
+    };
+
+    /* ---------------- вікно «Аніматора» (екскурсія й spot) */
+    const ZONES = {
+      top: ["Верхня панель", "назва проєкту, кнопки «Новий проєкт», «Зберегти», «Мої проєкти»"],
+      tools: ["Панель інструментів (ліворуч)", "Вибір об'єкта, Прямокутник, Еліпс, Трикутник, Лінія, Текст, Малюнок, Заповнення, Видалити"],
+      stage: ["Робоче поле (у центрі)", "сцена, на якій малюють і рухають об'єкти"],
+      palette: ["Колірна палітра (праворуч)", "кольори штриха й заповнення, код кольору, повзунки R, G, B і Щільність"],
+      params: ["Панель параметрів (під палітрою)", "X, Y, ширина, висота, кут, зсув вибраного об'єкта; ефекти"],
+      layers: ["Шари", "«Статичне тло», «Динамічне тло», «Анімація», «Передній план»"],
+      timeline: ["Шкала кадрів (унизу)", "номери кадрів, поточний кадр, кількість кадрів; ключові кадри позначено ◆"],
+      play: ["Програвач", "кнопки «Відтворити / Пауза», «Зациклити», частота кадрів"]
+    };
+    function animWindow(onClick) {
+      const win = el("div", "anim"); win.innerHTML = `<div class="ttl"><i></i><i></i><i></i> Аніматор Ліцею</div>`;
+      const subs = { top: "📄 Новий проєкт · 💾 Зберегти · 📂 Мої проєкти", tools: "↖ ▭ ◯ △ ╱ T 🙂 🪣 🗑", params: "X · Y · ширина · кут", layers: "тло · анімація", play: "▶ ⟳ 24" };
+      for (const id of Object.keys(ZONES)) {
+        const z = el("button", "z z-" + id); z.setAttribute("aria-label", ZONES[id][0]);
+        if (id === "stage") z.innerHTML = `<span class="ball"></span><span class="sq"></span>`;
+        else if (id === "palette") z.innerHTML = ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#111"].map((c) => `<span class="sw" style="background:${c}"></span>`).join("");
+        else if (id === "timeline") z.innerHTML = Array.from({ length: 12 }, (_, k) => `<span class="fr${k === 3 ? " cur" : ""}">${k + 1}</span>`).join("");
+        else z.innerHTML = `<span class="zs">${esc(subs[id])}</span>`;
+        z.onclick = () => onClick(id, z, win);
+        win.append(z);
+      }
+      return win;
+    }
+
+    /* ---------------- маркери: goal = move|size|rotate|null (вільна гра); onUse(kind) */
+    function markerSim(box, goal, onUse) {
+      const VW = 340, VH = 220;
+      const svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", `0 0 ${VW} ${VH}`); svg.classList.add("mk");
+      const mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); svg.append(e); return e; };
+      const b0 = { x: 110, y: 115, s: 70, a: 0 }, b = { ...b0 }, tgt = { x: 230, y: 70, w: 92, h: 92 };
+      mk("rect", { x: 0, y: 0, width: VW, height: VH, fill: "#bae6fd" });
+      if (goal === "move") mk("rect", { x: tgt.x, y: tgt.y, width: tgt.w, height: tgt.h, fill: "rgba(34,197,94,.15)", stroke: "#16a34a", "stroke-width": 2, "stroke-dasharray": "6 5", rx: 8 });
+      const g = mk("g", {}); const ball = document.createElementNS(NS, "ellipse"), stripe = document.createElementNS(NS, "rect"); g.append(ball, stripe);
+      const frame = mk("rect", { fill: "none", stroke: "#4f46e5", "stroke-dasharray": "4 3", "stroke-width": 1.5 });
+      const rotLine = mk("line", { stroke: "#16a34a", "stroke-width": 1.5 });
+      const hs = { c: mk("circle", { r: 9, fill: "#fff", stroke: "#4f46e5", "stroke-width": 2.5, class: "h hc" }), rot: mk("circle", { r: 9, fill: "#22c55e", stroke: "#14532d", "stroke-width": 2, class: "h hr" }) };
+      ["nw", "ne", "se", "sw"].forEach((k) => { hs[k] = mk("rect", { width: 14, height: 14, fill: "#fff", stroke: "#4f46e5", "stroke-width": 2.5, class: "h hk" }); });
+      function draw() {
+        const r = b.s / 2, A = b.a * Math.PI / 180, rot = (dx, dy) => [b.x + dx * Math.cos(A) - dy * Math.sin(A), b.y + dx * Math.sin(A) + dy * Math.cos(A)];
+        g.setAttribute("transform", `translate(${b.x} ${b.y}) rotate(${b.a})`);
+        Object.entries({ rx: r, ry: r, fill: "#f97316", stroke: "#9a3412", "stroke-width": 2 }).forEach(([k, v]) => ball.setAttribute(k, v));
+        Object.entries({ x: -r, y: -4, width: b.s, height: 8, fill: "#fff7ed" }).forEach(([k, v]) => stripe.setAttribute(k, v));
+        Object.entries({ x: b.x - r, y: b.y - r, width: b.s, height: b.s, transform: `rotate(${b.a} ${b.x} ${b.y})` }).forEach(([k, v]) => frame.setAttribute(k, v));
+        hs.c.setAttribute("cx", b.x); hs.c.setAttribute("cy", b.y);
+        const [rx, ry] = rot(0, -r - 24), [lx, ly] = rot(0, -r); hs.rot.setAttribute("cx", rx); hs.rot.setAttribute("cy", ry);
+        Object.entries({ x1: lx, y1: ly, x2: rx, y2: ry }).forEach(([k, v]) => rotLine.setAttribute(k, v));
+        const cs = { nw: [-r, -r], ne: [r, -r], se: [r, r], sw: [-r, r] };
+        for (const k in cs) { const [x, y] = rot(...cs[k]); hs[k].setAttribute("x", x - 7); hs[k].setAttribute("y", y - 7); }
+      }
+      draw();
+      const toSvg = (e) => { const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * VW, y: (e.clientY - r.top) / r.height * VH }; };
+      let drag = null, locked = false;
+      for (const k in hs) hs[k].addEventListener("pointerdown", (e) => { if (locked) return; e.preventDefault(); hs[k].setPointerCapture(e.pointerId); drag = { k, p: toSvg(e), b: { ...b } }; });
+      svg.addEventListener("pointermove", (e) => {
+        if (!drag || locked) return; const p = toSvg(e), d = drag;
+        if (d.k === "c") { b.x = clamp(d.b.x + p.x - d.p.x, 10, VW - 10); b.y = clamp(d.b.y + p.y - d.p.y, 10, VH - 10); onUse && onUse("move"); }
+        else if (d.k === "rot") { b.a = Math.round(Math.atan2(p.y - b.y, p.x - b.x) * 180 / Math.PI + 90); onUse && onUse("rotate"); }
+        else { const d0 = Math.hypot(d.p.x - d.b.x, d.p.y - d.b.y), d1 = Math.hypot(p.x - b.x, p.y - b.y); b.s = clamp(d.b.s * d1 / d0, 24, 190); onUse && onUse("size"); }
+        draw();
+      });
+      const end = () => { drag = null; }; svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
+      box.append(svg);
+      box.append(el("p", "legend", `<span><i class="lc"></i> центральний</span><span><i class="lk"></i> кутові</span><span><i class="lr"></i> верхній круглий</span>`));
+      return {
+        reset() { Object.assign(b, b0); draw(); },
+        check() {
+          locked = true; svg.classList.add("locked");
+          const a = ((b.a % 360) + 540) % 360 - 180;
+          return goal === "move" ? (b.x > tgt.x && b.x < tgt.x + tgt.w && b.y > tgt.y && b.y < tgt.y + tgt.h) : goal === "size" ? b.s >= b0.s * 1.3 : Math.abs(a) >= 25;
+        }
+      };
+    }
+
+    /* ---------------- перевірки: (ctx {task}, контейнер, done(ok, пояснення)) */
+    const normW = (t) => String(t).toLowerCase().replace(/[’ʼ`']/g, "'").replace(/ё/g, "е").replace(/\s+/g, " ").replace(/^[\s.,;:!?«»"]+|[\s.,;:!?«»"]+$/g, "").trim();
+    function lev(a, b) { let prev = Array.from({ length: b.length + 1 }, (_, j) => j); for (let i = 1; i <= a.length; i++) { const cur = [i]; for (let j = 1; j <= b.length; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; } return prev[b.length]; }
     const TASK = {
-      choice(s, box, done, variants) {
-        const v = R.pick(variants || s.task.v), ok = v[1][0];
+      choice(c, box, done) {
+        const v = R.pick(c.task.v), ok = v[1][0];
         box.append(qp(v[0]));
         const opts = el("div", "opts"); let sel = null;
-        for (const o of R.shuffle(v[1])) { const b = el("button", "opt", esc(o)); b.onclick = () => { if (b.disabled) return; opts.querySelectorAll(".opt").forEach((x) => x.classList.remove("sel")); b.classList.add("sel"); sel = o; ans.disabled = false; }; opts.append(b); }
+        for (const o of R.shuffle(v[1])) { const b = el("button", "opt", esc(o)); b.onclick = () => { opts.querySelectorAll(".opt").forEach((x) => x.classList.remove("sel")); b.classList.add("sel"); sel = o; ans.disabled = false; }; opts.append(b); }
         box.append(opts);
         const [ans] = footer([["Відповісти", "pri", () => {
           opts.querySelectorAll(".opt").forEach((b) => { b.disabled = true; if (b.textContent === ok) b.classList.add("right"); else if (b.classList.contains("sel")) b.classList.add("wrong"); });
-          done(sel === ok, esc(v[2] || ""));
-        }, true]]).children;
+          ans.disabled = true; done(sel === ok, esc(v[2] || ""));
+        }, true]]);
       },
-      calc(s, box, done) {
-        const v = s.task.gen(R);
+      cloze(c, box, done) {
+        box.append(qp("Впиши пропущені слова — так, як записано в зошиті."));
+        const p = el("p", "cloze"), blanks = [];
+        c.task.text.split(/(\[\[.+?\]\])/).forEach((part) => {
+          const m = part.match(/^\[\[(.+?)\]\]$/);
+          if (!m) return p.append(document.createTextNode(part));
+          const alts = m[1].split("|"), inp = el("input"); inp.type = "text"; inp.autocomplete = "off"; inp.spellcheck = false; inp.autocapitalize = "off";
+          inp.style.width = Math.max(4, alts[0].length + 2) + "ch"; inp.setAttribute("aria-label", "Пропущене слово");
+          blanks.push({ inp, alts }); p.append(inp);
+        });
+        box.append(p);
+        const check = () => blanks.map(({ inp, alts }) => { const v = normW(inp.value); return alts.some((a) => { const n = normW(a); return v === n || (n.length >= 6 && lev(v, n) <= 1); }); });
+        const [ans] = footer([["Перевірити", "pri", () => {
+          const res = check(); blanks.forEach(({ inp, alts }, i) => { inp.disabled = true; inp.classList.add(res[i] ? "right" : "wrong"); if (!res[i]) inp.title = alts[0]; });
+          ans.disabled = true;
+          const full = esc(c.task.text).replace(/\[\[(.+?)\]\]/g, (_, a) => `<b>${esc(a.split("|")[0])}</b>`);
+          done(res.every(Boolean), res.every(Boolean) ? "" : "Має бути: " + full);
+        }, true]]);
+        blanks.forEach(({ inp }) => { inp.oninput = () => { ans.disabled = !blanks.every((b) => b.inp.value.trim()); }; inp.onkeydown = (e) => { if (e.key === "Enter" && !ans.disabled) ans.click(); }; });
+      },
+      calc(c, box, done) {
+        const v = c.task.gen(R);
         box.append(qp(v.q));
         const row = el("div", "calc"); const inp = el("input"); inp.type = "text"; inp.inputMode = "decimal"; inp.autocomplete = "off"; inp.placeholder = "Відповідь";
         row.append(inp, el("span", "unit", esc(v.unit || ""))); box.append(row);
-        box.append(el("p", "hint", "💡 Порахуй у зошиті й впиши лише число."));
+        box.append(el("p", "hint", "💡 Формула — у твоєму зошиті. Порахуй і впиши лише число."));
         const [ans] = footer([["Відповісти", "pri", () => {
           const n = parseFloat(inp.value.replace(",", ".").replace(/[^\d.\-]/g, ""));
           inp.disabled = true; ans.disabled = true; done(Math.abs(n - v.ans) < 1e-6, esc(v.x));
-        }, true]]).children;
+        }, true]]);
         inp.oninput = () => { ans.disabled = !inp.value.trim(); };
         inp.onkeydown = (e) => { if (e.key === "Enter" && !ans.disabled) ans.click(); };
       },
-      order(s, box, done) {
-        const v = R.pick(s.task.v); box.append(qp(v.q));
+      order(c, box, done) {
+        const v = R.pick(c.task.v); box.append(qp(v.q));
         box.append(el("p", "hint", "💡 Торкайся карток по черзі — від першого кадру до останнього. Помилився — торкнись картки в рядку кадрів, щоб повернути."));
         const seq = el("ol", "seq"), pool = el("div", "pool"); box.append(seq, pool);
         let items = R.shuffle(v.items); while (items.join() === v.items.join()) items = R.shuffle(v.items);
@@ -522,147 +770,56 @@
           const ok = picked.every((t, k) => t === v.items[k]);
           seq.querySelectorAll("li").forEach((li, k) => { li.onclick = null; li.classList.add(picked[k] === v.items[k] ? "right" : "wrong"); });
           ans.disabled = true; done(ok, (ok ? "" : "Правильно: " + v.items.map(esc).join(" → ") + ". ") + esc(v.x || ""));
-        }, true]]).children;
+        }, true]]);
         draw();
       },
-      sort(s, box, done) {
-        const v = R.pick(s.task.v); box.append(qp(v.q));
-        box.append(el("p", "hint", "💡 Для кожного рядка натисни, куди він належить."));
-        const tbl = el("div", "sort"); box.append(tbl);
-        const pick = {}; const items = R.shuffle(v.items);
-        items.forEach(([t], k) => {
-          const row = el("div", "srow", `<span>${esc(t)}</span>`); const bs = el("div", "sbtns");
-          v.groups.forEach((g, gi) => { const b = el("button", "sb", esc(g)); b.onclick = () => { if (b.disabled) return; pick[k] = gi; bs.querySelectorAll(".sb").forEach((x, xi) => x.classList.toggle("sel", xi === gi)); ans.disabled = Object.keys(pick).length !== items.length; }; bs.append(b); });
-          row.append(bs); tbl.append(row);
+      spot(c, box, done) {
+        const v = R.pick(c.task.v); box.append(qp(v.q));
+        const win = animWindow((id, z, w) => {
+          w.querySelectorAll(".z").forEach((x) => { x.disabled = true; });
+          const ok = id === v.target; z.classList.add(ok ? "right" : "wrong");
+          if (!ok) w.querySelector(".z-" + v.target).classList.add("right");
+          done(ok, ok ? `Це ${ZONES[id][0].toLowerCase()}.` : `Ти клацнув(ла) «${ZONES[id][0]}», а треба — «${ZONES[v.target][0]}» (підсвічено зеленим).`);
         });
-        const [ans] = footer([["Відповісти", "pri", () => {
-          let ok = true;
-          tbl.querySelectorAll(".srow").forEach((row, k) => { const good = pick[k] === items[k][1]; if (!good) ok = false; row.classList.add(good ? "right" : "wrong"); row.querySelectorAll(".sb").forEach((b) => { b.disabled = true; }); });
-          ans.disabled = true; done(ok, esc(v.x || ""));
-        }, true]]).children;
-      },
-      spot(s, box, done) {
-        const v = R.pick(s.task.v); box.append(qp(v.q));
-        const zones = [["top", "Верхня панель", "📄 Новий проєкт · 💾 Зберегти · 📂 Мої проєкти"], ["tools", "Інструменти", "↖ ▭ ◯ △ ╱ T 🙂 🪣 🗑"], ["stage", "Робоче поле", ""], ["palette", "Колірна палітра", ""], ["params", "Параметри", "X · Y · ширина · кут"], ["layers", "Шари", "тло · анімація"], ["timeline", "Шкала кадрів", ""], ["play", "Програвач", "▶ ⟳ 24"]];
-        const win = el("div", "anim"); win.innerHTML = `<div class="ttl"><i></i><i></i><i></i> Аніматор Ліцею</div>`;
-        const names = { top: "верхня панель", tools: "панель інструментів", stage: "робоче поле", palette: "колірна палітра", params: "панель параметрів", layers: "шари", timeline: "шкала кадрів", play: "програвач" };
-        for (const [id, t, sub] of zones) {
-          const z = el("button", "z z-" + id); z.dataset.z = id; z.setAttribute("aria-label", t);
-          if (id === "stage") z.innerHTML = `<span class="ball"></span><span class="sq"></span>`;
-          else if (id === "palette") z.innerHTML = `<span class="sw" style="background:#ef4444"></span><span class="sw" style="background:#f59e0b"></span><span class="sw" style="background:#22c55e"></span><span class="sw" style="background:#3b82f6"></span><span class="sw" style="background:#a855f7"></span><span class="sw" style="background:#111"></span>`;
-          else if (id === "timeline") z.innerHTML = Array.from({ length: 12 }, (_, k) => `<span class="fr${k === 3 ? " cur" : ""}">${k + 1}</span>`).join("");
-          else z.innerHTML = `<span class="zs">${esc(sub)}</span>`;
-          z.onclick = () => {
-            win.querySelectorAll(".z").forEach((x) => { x.disabled = true; });
-            const ok = id === v.target; z.classList.add(ok ? "right" : "wrong");
-            if (!ok) win.querySelector(".z-" + v.target).classList.add("right");
-            done(ok, ok ? `Це ${names[id]}.` : `Ти клацнув(ла) «${names[id]}», а треба — «${names[v.target]}» (підсвічено зеленим).`);
-          };
-          win.append(z);
-        }
-        box.append(win);
-        box.append(el("p", "hint", "💡 Клацни потрібну частину вікна. Підписів немає — як у справжній програмі."));
+        box.append(win, el("p", "hint", "💡 Підписів немає — як у справжній програмі."));
         footer([]);
       },
-      markers(s, box, done) {
-        const v = R.pick(s.task.v); box.append(qp(v.q));
-        box.append(el("p", "hint", "💡 Сам м'яч не тягнеться — лише маркери навколо нього. Тягни мишею або пальцем, потім натисни «Перевірити»."));
-        const NS = "http://www.w3.org/2000/svg", VW = 340, VH = 220;
-        const svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", `0 0 ${VW} ${VH}`); svg.classList.add("mk");
-        const mk = (t, a) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); svg.append(e); return e; };
-        const b0 = { x: 110, y: 115, s: 70, a: 0 }, b = { ...b0 };
-        const tgt = { x: 230, y: 70, w: 92, h: 92 };
-        mk("rect", { x: 0, y: 0, width: VW, height: VH, fill: "#bae6fd" });
-        if (v.goal === "move") mk("rect", { x: tgt.x, y: tgt.y, width: tgt.w, height: tgt.h, fill: "rgba(34,197,94,.15)", stroke: "#16a34a", "stroke-width": 2, "stroke-dasharray": "6 5", rx: 8 });
-        const g = mk("g", {}); const ball = document.createElementNS(NS, "ellipse"), stripe = document.createElementNS(NS, "rect"); g.append(ball, stripe);
-        const frame = mk("rect", { fill: "none", stroke: "#4f46e5", "stroke-dasharray": "4 3", "stroke-width": 1.5 });
-        const rotLine = mk("line", { stroke: "#16a34a", "stroke-width": 1.5 });
-        const hs = { c: mk("circle", { r: 9, fill: "#fff", stroke: "#4f46e5", "stroke-width": 2.5, class: "h hc" }), rot: mk("circle", { r: 9, fill: "#22c55e", stroke: "#14532d", "stroke-width": 2, class: "h hr" }) };
-        ["nw", "ne", "se", "sw"].forEach((k) => { hs[k] = mk("rect", { width: 14, height: 14, fill: "#fff", stroke: "#4f46e5", "stroke-width": 2.5, class: "h hk" }); });
-        const used = new Set();
-        function draw() {
-          const r = b.s / 2;
-          g.setAttribute("transform", `translate(${b.x} ${b.y}) rotate(${b.a})`);
-          ball.setAttribute("rx", r); ball.setAttribute("ry", r); ball.setAttribute("fill", "#f97316"); ball.setAttribute("stroke", "#9a3412"); ball.setAttribute("stroke-width", 2);
-          stripe.setAttribute("x", -r); stripe.setAttribute("y", -4); stripe.setAttribute("width", b.s); stripe.setAttribute("height", 8); stripe.setAttribute("fill", "#fff7ed");
-          const rot = (dx, dy) => { const a = b.a * Math.PI / 180; return [b.x + dx * Math.cos(a) - dy * Math.sin(a), b.y + dx * Math.sin(a) + dy * Math.cos(a)]; };
-          frame.setAttribute("x", b.x - r); frame.setAttribute("y", b.y - r); frame.setAttribute("width", b.s); frame.setAttribute("height", b.s); frame.setAttribute("transform", `rotate(${b.a} ${b.x} ${b.y})`);
-          hs.c.setAttribute("cx", b.x); hs.c.setAttribute("cy", b.y);
-          const [rx, ry] = rot(0, -r - 24), [lx, ly] = rot(0, -r); hs.rot.setAttribute("cx", rx); hs.rot.setAttribute("cy", ry);
-          rotLine.setAttribute("x1", lx); rotLine.setAttribute("y1", ly); rotLine.setAttribute("x2", rx); rotLine.setAttribute("y2", ry);
-          const cs = { nw: [-r, -r], ne: [r, -r], se: [r, r], sw: [-r, r] };
-          for (const k in cs) { const [x, y] = rot(...cs[k]); hs[k].setAttribute("x", x - 7); hs[k].setAttribute("y", y - 7); }
-        }
-        draw();
-        const toSvg = (e) => { const r = svg.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * VW, y: (e.clientY - r.top) / r.height * VH }; };
-        let drag = null;
-        for (const k in hs) hs[k].addEventListener("pointerdown", (e) => { e.preventDefault(); hs[k].setPointerCapture(e.pointerId); const p = toSvg(e); drag = { k, p, b: { ...b } }; used.add(k === "c" ? "move" : k === "rot" ? "rotate" : "size"); });
-        svg.addEventListener("pointermove", (e) => {
-          if (!drag || locked) return; const p = toSvg(e), d = drag;
-          if (d.k === "c") { b.x = clamp(d.b.x + p.x - d.p.x, 10, VW - 10); b.y = clamp(d.b.y + p.y - d.p.y, 10, VH - 10); }
-          else if (d.k === "rot") { b.a = Math.round(Math.atan2(p.y - b.y, p.x - b.x) * 180 / Math.PI + 90); }
-          else { const d0 = Math.hypot(d.p.x - d.b.x, d.p.y - d.b.y), d1 = Math.hypot(p.x - b.x, p.y - b.y); b.s = clamp(d.b.s * d1 / d0, 24, 190); }
-          draw();
-        });
-        const end = () => { drag = null; }; svg.addEventListener("pointerup", end); svg.addEventListener("pointercancel", end);
-        let locked = false;
-        box.append(svg);
-        box.append(el("p", "legend", `<span><i class="lc"></i> центральний</span><span><i class="lk"></i> кутові</span><span><i class="lr"></i> верхній круглий</span>`));
-        footer([["↺ Спочатку", "", () => { Object.assign(b, b0); used.clear(); draw(); }], ["Перевірити", "pri", () => {
-          const a = ((b.a % 360) + 540) % 360 - 180;
-          const ok = v.goal === "move" ? (b.x > tgt.x && b.x < tgt.x + tgt.w && b.y > tgt.y && b.y < tgt.y + tgt.h)
-            : v.goal === "size" ? b.s >= b0.s * 1.3 : Math.abs(a) >= 25;
-          locked = true; svg.classList.add("locked");
-          done(ok, { move: "Переміщують за центральний маркер.", size: "Розмір змінюють кутові маркери.", rotate: "Повертають за верхній круглий (зелений) маркер." }[v.goal] + (used.size > 1 ? " Інші маркери роблять інше: центральний — переміщує, кутові — змінюють розмір, верхній круглий — повертає." : ""));
+      markers(c, box, done) {
+        const v = R.pick(c.task.v); box.append(qp(v.q));
+        box.append(el("p", "hint", "💡 Тягни потрібний маркер, потім натисни «Перевірити»."));
+        const sim = markerSim(box, v.goal, null);
+        footer([["↺ Спочатку", "", () => sim.reset()], ["Перевірити", "pri", () => {
+          done(sim.check(), { move: "Переміщують за центральний маркер.", size: "Розмір змінюють кутові маркери.", rotate: "Повертають за верхній круглий (зелений) маркер." }[v.goal]);
         }]]);
       },
-      spin(s, box, done) {
-        box.append(el("p", "hint", "💡 Затисни кнопку «Крутити» (або пробіл) і тримай, доки кружечок не розкрутиться."));
-        const c = el("canvas", "spin"); c.width = 440; c.height = 300; box.append(c);
-        const meter = el("div", "meter", "<i></i>"); box.append(meter);
-        const hold = el("button", "btn hold", "🌀 Крутити (тримай)"); box.append(hold);
-        const g = c.getContext("2d"); let ang = 0, w = 0, held = false, good = 0, alive = true, revealed = false;
-        const on = (e) => { e.preventDefault(); held = true; }, off = () => { held = false; };
-        hold.addEventListener("pointerdown", on); addEventListener("pointerup", off); hold.addEventListener("pointerleave", off);
-        const kd = (e) => { if (e.code === "Space") { e.preventDefault(); held = true; } }, ku = (e) => { if (e.code === "Space") held = false; };
-        addEventListener("keydown", kd); addEventListener("keyup", ku);
-        const side = (bird, a) => { g.globalAlpha = a; if (bird) { g.font = '72px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif'; g.textAlign = "center"; g.textBaseline = "middle"; g.fillText("🐦", 0, 4); } else { g.strokeStyle = "#334155"; g.lineWidth = 5; for (let k = -2; k <= 2; k++) { g.beginPath(); g.moveTo(k * 18, -50); g.lineTo(k * 18, 55); g.stroke(); } g.beginPath(); g.arc(0, -50, 38, Math.PI, 0); g.stroke(); g.beginPath(); g.moveTo(-42, 55); g.lineTo(42, 55); g.stroke(); } g.globalAlpha = 1; };
-        let last = performance.now();
-        (function loop(now) {
-          if (!alive || !document.body.contains(c)) { removeEventListener("keydown", kd); removeEventListener("keyup", ku); removeEventListener("pointerup", off); return; }
-          const dt = Math.min(0.05, (now - last) / 1000); last = now;
-          w = held ? Math.min(60, w + dt * 30) : Math.max(0, w - dt * 18); ang += w * dt;
-          g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, 440, 300);
-          g.strokeStyle = "#a8a29e"; g.lineWidth = 2; g.beginPath(); g.moveTo(10, 150); g.lineTo(150, 150); g.moveTo(290, 150); g.lineTo(430, 150); g.stroke();
-          g.translate(220, 150); const sx = Math.cos(ang), fast = clamp((w - 22) / 20, 0, 1);
-          g.scale(fast > 0 ? 1 : Math.max(0.05, Math.abs(sx)), 1);
-          g.beginPath(); g.arc(0, 0, 100, 0, 7); g.fillStyle = "#fffbeb"; g.fill(); g.strokeStyle = "#a16207"; g.lineWidth = 4; g.stroke();
-          if (fast > 0) { side(true, 0.5 + fast * 0.5); side(false, 0.5 + fast * 0.5); } else side(sx > 0, 1);
-          meter.firstChild.style.width = (w / 60 * 100) + "%";
-          if (fast >= 1) good += dt; if (good > 1 && !revealed) { revealed = true; reveal(); }
-          requestAnimationFrame(loop);
-        })(last);
-        function reveal() {
-          const p = el("p", "say", "Бачиш? Пташка «сидить» у клітці, хоча намальовані вони на різних боках! А тепер питання:"); box.append(p);
-          const sub = el("div"); box.append(sub); TASK.choice(s, sub, (ok, x) => { alive = false; done(ok, x); }, s.task.then);
-          p.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        }
-        footer([]);
-      },
-      copy(s, box, done) {
-        const v = R.pick(s.task.v);
-        box.append(qp("Перепиши визначення в картку — літера в літеру. Потім запиши його і в зошит."));
-        const src = el("blockquote", "src noselect", esc(v.text)); box.append(src);
-        const ta = el("textarea"); ta.rows = 4; ta.placeholder = "Друкуй тут…"; ta.spellcheck = false; box.append(ta);
-        const m = el("div", "meter", "<i></i>"), lab = el("p", "hint", "Збіг: 0 %. Треба щонайменше 90 %."); box.append(m, lab);
-        for (const ev of ["paste", "drop"]) ta.addEventListener(ev, (e) => { e.preventDefault(); toast("Вставляти не можна — тільки друкувати 🙂"); });
-        src.addEventListener("copy", (e) => e.preventDefault());
-        const norm = (t) => t.toLowerCase().replace(/[’ʼ`']/g, "'").replace(/[«»“”"]/g, '"').replace(/[—–-]/g, "-").replace(/\s+/g, " ").replace(/[.\s]+$/, "").trim();
-        const target = norm(v.text);
-        const sim = (a, b) => { const n = a.length, m2 = b.length; if (!n) return 0; let prev = Array.from({ length: m2 + 1 }, (_, j) => j); for (let i = 1; i <= n; i++) { const cur = [i]; for (let j = 1; j <= m2; j++) cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)); prev = cur; } return 1 - prev[m2] / Math.max(n, m2); };
-        let pct = 0;
-        ta.oninput = () => { pct = Math.round(sim(norm(ta.value), target) * 100); m.firstChild.style.width = pct + "%"; m.classList.toggle("ok", pct >= 90); lab.textContent = `Збіг: ${pct} %. ` + (pct >= 90 ? "Чудово, можна здавати!" : "Треба щонайменше 90 %."); ans.disabled = pct < 90; };
-        const [ans] = footer([["Здати картку", "pri", () => { ta.disabled = true; ans.disabled = true; done(true, `Збіг ${pct} %. Тепер — у зошит!`); }, true]]).children;
+      // «Новий проєкт»: назва Стрибок_Прізвище, 640×480, 24 кадр/с, світло-блакитне тло, потім «Зберегти»
+      form(c, box, done) {
+        const sur = String(c.sname || "").split(" ")[0] || "Прізвище";
+        box.append(qp(`Створи свій перший проєкт: назва — **Стрибок_${sur}**, розмір кадру — **640×480**, частота — **24 кадр/с**, колір тла — **світло-блакитний**. Потім збережи.`));
+        const f = el("div", "pform");
+        f.innerHTML = `<div class="ptitle">📄 Новий проєкт</div>
+          <label>Назва проєкту<input type="text" id="pfName" autocomplete="off" spellcheck="false" placeholder="Назва"></label>
+          <label>Розмір кадру<select id="pfSize"><option value="">— вибери —</option><option>320×240</option><option>640×480</option><option>1280×720</option><option>1920×1080</option></select></label>
+          <label>Частота кадрів, кадр/с<input type="text" id="pfFps" inputmode="numeric" autocomplete="off" placeholder="?"></label>
+          <div class="plab">Колір тла</div><div class="psw" id="pfCol"></div>`;
+        box.append(f);
+        const cols = [["#ffffff", "білий"], ["#bfe3ff", "світло-блакитний"], ["#1e3a8a", "темно-синій"], ["#fde68a", "жовтий"], ["#bbf7d0", "світло-зелений"]];
+        let col = null; const sw = f.querySelector("#pfCol");
+        cols.forEach(([h, n]) => { const b = el("button", "pc"); b.style.background = h; b.title = n; b.setAttribute("aria-label", n); b.onclick = () => { col = n; sw.querySelectorAll(".pc").forEach((x) => x.classList.toggle("sel", x === b)); }; sw.append(b); });
+        const [mk] = footer([["Створити", "pri", () => {
+          const name = f.querySelector("#pfName").value.trim(), size = f.querySelector("#pfSize").value, fps = f.querySelector("#pfFps").value.trim();
+          const errs = [];
+          if (!/^стрибок[_-]\S{2,}$/i.test(name)) errs.push(`назва має бути «Стрибок_${sur}»`);
+          if (size !== "640×480") errs.push("розмір кадру — 640×480");
+          if (fps.replace(/\D/g, "") !== "24") errs.push("частота — 24 кадр/с");
+          if (col !== "світло-блакитний") errs.push("колір тла — світло-блакитний");
+          f.querySelectorAll("input,select,button").forEach((x) => { x.disabled = true; }); mk.disabled = true;
+          const stage = el("div", "pstage", `<div class="pbar2"><b>${esc(name || "Без назви")}</b><button class="btn" id="pfSave">💾 Зберегти</button></div><div class="pfield" style="background:${(cols.find((x) => x[1] === col) || cols[0])[0]}"><span>кадр 1 — ${esc(size || "?")}</span></div>`);
+          box.append(stage, el("p", "hint", "Проєкт створено — у робочому полі перший кадр. Що треба зробити одразу?"));
+          stage.scrollIntoView({ block: "nearest", behavior: "smooth" });
+          footer([]);
+          stage.querySelector("#pfSave").onclick = (e) => { e.target.disabled = true; e.target.textContent = "✓ Збережено"; done(!errs.length, errs.length ? "Перевір: " + errs.join("; ") + "." : "Параметри правильні, проєкт збережено одразу."); };
+        }]]);
       }
     };
 
@@ -671,35 +828,36 @@
     function openBook() {
       if (!st) return;
       const body = $("#bookBody"); body.innerHTML = "";
-      if (!st.notes.length) body.append(el("p", "hint", "Поки порожньо. Допомагай персонажам — після кожного завдання сюди потрапить те, що треба записати."));
-      st.notes.slice().sort((a, b) => a.i - b.i).forEach((n) => body.append(noteCard(n)));
+      body.append(el("p", "say", "Тут — лише <b>назви</b> того, що ти мав(ла) записати. Сам текст — у твоєму паперовому зошиті. Наприкінці уроку побачиш усе повністю й зможеш звірити."));
+      if (!st.notes.length) body.append(el("p", "hint", "Поки порожньо."));
+      const ul = el("ul", "blist"); st.notes.forEach((n) => ul.append(el("li", "", esc(n.label)))); body.append(ul);
       book.hidden = false; paused = true;
     }
-    function closeBook() { if (book.hidden) return; book.hidden = true; if (!openSt && $("#res").hidden) paused = false; }
+    function closeBook() { if (book.hidden) return; book.hidden = true; if (!openSt && $("#res").hidden && st && !st.finished) paused = false; }
     $("#bookBtn").onclick = openBook; $("#bookClose").onclick = closeBook;
     book.addEventListener("click", (e) => { if (e.target === book) closeBook(); });
 
     /* ============================================================ ФІНАЛ */
     function finishAll() {
       st.finished = true; paused = true; hud.hidden = true;
-      const score = Object.values(st.done).reduce((a, b) => a + b, 0), g12 = Math.max(1, Math.round(score / N * 12));
+      const sc = score(), total = CHECKS.length, g12 = Math.max(1, Math.round(sc / total * 12));
       const sec = Math.round((Date.now() - st.start) / 1000);
       const ak = `${KEY}:att:${st.cls}|${personKey(st.name)}`, att = store.get(ak, 0) + 1; store.set(ak, att);
       saveSt();
-      const wrong = stations.filter((s) => !st.done[s.i]).map((s) => s.i + 1).join(", ");
-      queueResult({ ts: new Date().toISOString(), testId: Q.id, test: Q.title, kind: "quest", cls: st.cls, name: st.name, attempt: att, score, total: N, grade12: g12, violations: st.viol, durationSec: sec, wrong, note: "🕹️ квест" + (st.viol ? `; виходів: ${st.viol}` : "") });
-      $("#rGrade").textContent = g12; $("#rScore").textContent = `${score} з ${N}`; $("#rTime").textContent = `${Math.floor(sec / 60)} хв ${sec % 60} с`;
+      const wrong = CHECKS.map((k, i) => (st.checks[k] ? 0 : i + 1)).filter(Boolean).join(", ");
+      const skipped = stations.filter((s) => s.optional && !isDone(s)).length;
+      queueResult({ ts: new Date().toISOString(), testId: Q.id, test: Q.title, kind: "quest", cls: st.cls, name: st.name, attempt: att, score: sc, total, grade12: g12, violations: st.viol, durationSec: sec, wrong, note: "🕹️ урок-квест" + (skipped ? `; ⭐ пропущено: ${skipped}` : "") + (st.viol ? `; виходів: ${st.viol}` : "") });
+      $("#rGrade").textContent = g12; $("#rScore").textContent = `${sc} з ${total}`; $("#rTime").textContent = `${Math.floor(sec / 60)} хв ${sec % 60} с`;
       $("#rTitle").textContent = g12 >= 10 ? "Стажування пройдено блискуче!" : g12 >= 7 ? "Стажування пройдено!" : "Стажування пройдено — але варто повторити";
       const ul = $("#rList"); ul.innerHTML = "";
-      stations.forEach((s) => ul.append(el("li", st.done[s.i] ? "ok" : "bad", `${esc(s.npc.name)} <small>${esc(s.roomName.replace("⭐ ", ""))}${s.star ? " · ⭐" : ""}</small>`)));
-      const nb = $("#rNotes"); nb.innerHTML = ""; st.notes.slice().sort((a, b) => a.i - b.i).forEach((n) => nb.append(noteCard(n)));
-      $("#res").hidden = false;
+      stations.forEach((s) => { const ks = s.steps.map((p, k) => p.t === "check" ? `${s.i}:${k}` : null).filter(Boolean); if (!ks.length) return; const got = ks.filter((k) => st.checks[k]).length; ul.append(el("li", got === ks.length ? "ok" : "bad", `${esc(s.topic)} <small>${got}/${ks.length}</small>`)); });
+      const nb = $("#rNotes"); nb.innerHTML = "";
+      stations.forEach((s) => s.steps.forEach((p, k) => { if (p.t === "write" || (p.t === "say" && p.write)) { if (!s.optional || isDone(s)) nb.append(p.t === "write" ? noteCard(p) : noteBox(table(p.table), `✍️ ${s.topic} — таблиця`)); } }));
+      $("#toast").hidden = true; $("#res").hidden = false;
     }
     $("#again").onclick = () => { store.set(KEY + ":run", null); location.reload(); };
 
-    function queueResult(row) {
-      const box = store.get("qz:outbox", []); box.push(row); store.set("qz:outbox", box); flush();
-    }
+    function queueResult(row) { const box = store.get("qz:outbox", []); box.push(row); store.set("qz:outbox", box); flush(); }
     async function flush() {
       if (!CFG.SHEETS_URL) return;
       let box = store.get("qz:outbox", []);
@@ -708,7 +866,7 @@
         catch (e) { break; }
       }
     }
-    window.QUEST.debug = { findPath, goTo, stations, P, st: () => st, openStation, finishAll };
+    window.QUEST.debug = { findPath, goTo, stations, P, st: () => st, openStation, finishAll, available };
   }
 
   /* ---------------------------------------------------------- сповіщення */

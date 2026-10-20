@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/quest.css?v=202610201200">
+<link rel="stylesheet" href="assets/quest.css?v=202610201500">
 </head>
 <body>
 <canvas id="world" aria-label="Карта квесту"></canvas>
@@ -40,10 +40,11 @@
     <h1 id="sTitle">Завантаження…</h1>
     <p id="sIntro"></p>
     <ul class="how">
+      <li>📒 Приготуй <b>паперовий зошит і ручку</b>: тема — «Інтерфейс редактора двовимірної анімації».</li>
       <li>🚶 Ходи студією: <b>WASD</b> / стрілки або просто <b>клацни</b> (торкнись) туди, куди треба піти.</li>
-      <li>💬 Персонаж з <b>«!»</b> над головою має для тебе завдання. Клацни по ньому — підійдеш і почнеш розмову.</li>
-      <li>✍️ Після кожного завдання — картка <b>«Запиши в зошит»</b>. Усе зібране — у кнопці <b>📒 Зошит</b>.</li>
-      <li>⭐ Зал із зірочкою — завдання для 12 балів.</li>
+      <li>💬 Говори з тим, у кого над головою <b>«!»</b>. Персонажі відкриваються по черзі, стрілка покаже, куди йти.</li>
+      <li>✍️ Картку <b>«Запиши в зошит»</b> переписуй одразу: потім текст сховають і перевірять, що записано.</li>
+      <li>⭐ Музей анімації — для 12 балів. Без нього максимум — 9.</li>
     </ul>
     <div class="row2">
       <label class="fld">Клас<select id="cls"></select></label>
@@ -58,7 +59,7 @@
 <!-- Розмова з персонажем -->
 <section class="overlay" id="dlg" hidden>
   <div class="card sheet dsheet" role="dialog" aria-modal="true" aria-labelledby="dWho">
-    <header class="dhead"><span class="ava" id="dAva"></span><div><b id="dWho"></b><small id="dWhere"></small></div></header>
+    <header class="dhead"><span class="ava" id="dAva"></span><div><b id="dWho"></b><small id="dWhere"></small></div><span class="dstep" id="dStep"></span></header>
     <div class="dbody" id="dBody"></div>
     <footer class="dfoot" id="dFoot"></footer>
   </div>
@@ -67,7 +68,7 @@
 <!-- Зошит -->
 <section class="overlay" id="book" hidden>
   <div class="card sheet">
-    <header class="dhead"><span class="ava nb">📒</span><div><b>Мій зошит</b><small>Перепиши це в паперовий зошит</small></div><button class="ico" id="bookClose" aria-label="Закрити">✕</button></header>
+    <header class="dhead"><span class="ava nb">📒</span><div><b>Мій зошит</b><small>Що ти вже записав(ла)</small></div><button class="ico" id="bookClose" aria-label="Закрити">✕</button></header>
     <div class="dbody" id="bookBody"></div>
   </div>
 </section>
@@ -75,15 +76,15 @@
 <!-- Результат -->
 <section class="overlay" id="res" hidden>
   <div class="card sheet">
-    <div class="eyebrow">Квест завершено</div>
+    <div class="eyebrow">Урок пройдено</div>
     <h1 id="rTitle"></h1>
     <div class="stats">
       <div><small>Оцінка</small><b id="rGrade"></b></div>
-      <div><small>Станцій</small><b id="rScore"></b></div>
+      <div><small>Перевірок</small><b id="rScore"></b></div>
       <div><small>Час</small><b id="rTime"></b></div>
     </div>
     <ul class="rlist" id="rList"></ul>
-    <h2>✍️ Що записати в зошит</h2>
+    <h2>✍️ Звір зі своїм зошитом — чогось бракує, допиши</h2>
     <div id="rNotes"></div>
     <div class="dfoot">
       <a class="btn" href="index.html" onclick="this.href=document.getElementById('backLink').href">← До уроку</a>
@@ -94,7 +95,7 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="config.js?v=202610201200"></script>
-<script src="assets/quest.js?v=202610201200"></script>
+<script src="config.js?v=202610201500"></script>
+<script src="assets/quest.js?v=202610201500"></script>
 </body>
 </html>
