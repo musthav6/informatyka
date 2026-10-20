@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/quest.css?v=202610201500">
+<link rel="stylesheet" href="assets/quest.css?v=202610202013">
 </head>
 <body>
 <canvas id="world" aria-label="Карта квесту"></canvas>
@@ -86,6 +86,17 @@
     <ul class="rlist" id="rList"></ul>
     <h2>✍️ Звір зі своїм зошитом — чогось бракує, допиши</h2>
     <div id="rNotes"></div>
+    <div class="poll" id="poll">
+      <h2><span class="betab">бета</span> Тобі підходить конспект у вигляді гри?</h2>
+      <div class="pollb">
+        <button class="opt" data-v="2">👍 Так, хочу так і далі</button>
+        <button class="opt" data-v="1">🤷 Нормально, але звичайний конспект теж ок</button>
+        <button class="opt" data-v="0">👎 Звичайний конспект зручніший</button>
+      </div>
+      <textarea id="pollTxt" rows="2" placeholder="Що змінити чи додати? (можна не писати)"></textarea>
+      <button class="btn pri" id="pollSend" disabled>Надіслати відгук</button>
+      <p class="info" id="pollOk" hidden>Дякую! Відгук отримано — так ми зрозуміємо, чи робити ігри й до інших тем.</p>
+    </div>
     <div class="dfoot">
       <a class="btn" href="index.html" onclick="this.href=document.getElementById('backLink').href">← До уроку</a>
       <button class="btn pri" id="again">Пройти ще раз</button>
@@ -95,7 +106,7 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="config.js?v=202610201500"></script>
-<script src="assets/quest.js?v=202610201500"></script>
+<script src="config.js?v=202610202013"></script>
+<script src="assets/quest.js?v=202610202013"></script>
 </body>
 </html>

@@ -855,6 +855,16 @@
       stations.forEach((s) => s.steps.forEach((p, k) => { if (p.t === "write" || (p.t === "say" && p.write)) { if (!s.optional || isDone(s)) nb.append(p.t === "write" ? noteCard(p) : noteBox(table(p.table), `✍️ ${s.topic} — таблиця`)); } }));
       $("#toast").hidden = true; $("#res").hidden = false;
     }
+    // опитування бети: окремий рядок у таблиці (аркуш beta-<id>), оцінка 2 / 1 / 0
+    let pollV = null;
+    document.querySelectorAll("#poll .opt").forEach((b) => { b.onclick = () => { pollV = +b.dataset.v; document.querySelectorAll("#poll .opt").forEach((x) => x.classList.toggle("sel", x === b)); $("#pollSend").disabled = false; }; });
+    $("#pollSend").onclick = () => {
+      if (pollV == null || !st) return;
+      const lab = document.querySelector(`#poll .opt[data-v="${pollV}"]`).textContent, txt = $("#pollTxt").value.trim().slice(0, 500);
+      queueResult({ ts: new Date().toISOString(), testId: "beta-" + Q.id, test: `Відгук: ${Q.title} (бета)`, kind: "feedback", cls: st.cls, name: st.name, attempt: 1, score: pollV, total: 2, grade12: 0, violations: 0, durationSec: 0, wrong: "", note: lab + (txt ? " · " + txt : "") });
+      document.querySelectorAll("#poll .opt, #pollTxt, #pollSend").forEach((x) => { x.disabled = true; });
+      $("#pollOk").hidden = false;
+    };
     $("#again").onclick = () => { store.set(KEY + ":run", null); location.reload(); };
 
     function queueResult(row) { const box = store.get("qz:outbox", []); box.push(row); store.set("qz:outbox", box); flush(); }

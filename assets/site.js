@@ -141,6 +141,9 @@
       $("notes").innerHTML = html;
       $("notesWrap").hidden = false;
     });
+    // конспект-гра (бета): quest.html?q=<id>, відкривається без коду уроку
+    $("questWrap").hidden = !l.quest;
+    if (l.quest) $("questLink").href = `quest.html?q=${l.quest}`;
     const key = $("key"); key.innerHTML = "";
     (l.key || []).forEach((k) => key.appendChild(el("li", "", k)));
     $("keyWrap").hidden = !(l.key && l.key.length);
