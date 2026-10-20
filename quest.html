@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Квест</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="assets/quest.css?v=202610201200">
+</head>
+<body>
+<canvas id="world" aria-label="Карта квесту"></canvas>
+
+<!-- Інтерфейс під час гри -->
+<div id="hud" hidden>
+  <div class="hud-tl">
+    <div class="card hcard">
+      <div class="hrow"><b id="qTitle"></b><button class="ico" id="listToggle" aria-label="Список завдань">☰</button></div>
+      <div class="pbar" id="qBar"><i></i></div>
+      <div class="small" id="qProg"></div>
+      <ul id="qList"></ul>
+    </div>
+  </div>
+  <div class="hud-tr">
+    <button class="btn book" id="bookBtn">📒 Зошит <span class="badge" id="bookN">0</span></button>
+  </div>
+  <div class="hud-bottom">
+    <button class="btn pri talk" id="talk" hidden></button>
+    <div class="next card" id="qNext"></div>
+    <div class="keys small">WASD / стрілки — ходити · клацни по підлозі чи персонажу — піти туди · E — говорити · N — зошит</div>
+  </div>
+</div>
+
+<!-- Старт -->
+<section class="overlay" id="start">
+  <div class="card sheet">
+    <a href="index.html" class="back" id="backLink">← Повернутися до уроку</a>
+    <div class="eyebrow" id="sEyebrow"></div>
+    <h1 id="sTitle">Завантаження…</h1>
+    <p id="sIntro"></p>
+    <ul class="how">
+      <li>🚶 Ходи студією: <b>WASD</b> / стрілки або просто <b>клацни</b> (торкнись) туди, куди треба піти.</li>
+      <li>💬 Персонаж з <b>«!»</b> над головою має для тебе завдання. Клацни по ньому — підійдеш і почнеш розмову.</li>
+      <li>✍️ Після кожного завдання — картка <b>«Запиши в зошит»</b>. Усе зібране — у кнопці <b>📒 Зошит</b>.</li>
+      <li>⭐ Зал із зірочкою — завдання для 12 балів.</li>
+    </ul>
+    <div class="row2">
+      <label class="fld">Клас<select id="cls"></select></label>
+      <label class="fld">Прізвище та ім'я<input type="text" id="name" autocomplete="off" placeholder="Коваленко Софія"></label>
+    </div>
+    <p class="info" id="resume" hidden></p>
+    <button class="btn pri big" id="go" disabled>Почати</button>
+    <p class="small muted">Робота для самостійного виконання. Не списуй. Виходи з вкладки фіксуються.</p>
+  </div>
+</section>
+
+<!-- Розмова з персонажем -->
+<section class="overlay" id="dlg" hidden>
+  <div class="card sheet dsheet" role="dialog" aria-modal="true" aria-labelledby="dWho">
+    <header class="dhead"><span class="ava" id="dAva"></span><div><b id="dWho"></b><small id="dWhere"></small></div></header>
+    <div class="dbody" id="dBody"></div>
+    <footer class="dfoot" id="dFoot"></footer>
+  </div>
+</section>
+
+<!-- Зошит -->
+<section class="overlay" id="book" hidden>
+  <div class="card sheet">
+    <header class="dhead"><span class="ava nb">📒</span><div><b>Мій зошит</b><small>Перепиши це в паперовий зошит</small></div><button class="ico" id="bookClose" aria-label="Закрити">✕</button></header>
+    <div class="dbody" id="bookBody"></div>
+  </div>
+</section>
+
+<!-- Результат -->
+<section class="overlay" id="res" hidden>
+  <div class="card sheet">
+    <div class="eyebrow">Квест завершено</div>
+    <h1 id="rTitle"></h1>
+    <div class="stats">
+      <div><small>Оцінка</small><b id="rGrade"></b></div>
+      <div><small>Станцій</small><b id="rScore"></b></div>
+      <div><small>Час</small><b id="rTime"></b></div>
+    </div>
+    <ul class="rlist" id="rList"></ul>
+    <h2>✍️ Що записати в зошит</h2>
+    <div id="rNotes"></div>
+    <div class="dfoot">
+      <a class="btn" href="index.html" onclick="this.href=document.getElementById('backLink').href">← До уроку</a>
+      <button class="btn pri" id="again">Пройти ще раз</button>
+    </div>
+  </div>
+</section>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script src="config.js?v=202610201200"></script>
+<script src="assets/quest.js?v=202610201200"></script>
+</body>
+</html>
