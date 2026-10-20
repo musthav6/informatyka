@@ -112,6 +112,12 @@
   }
 
   /* ================================================================ СТОРІНКА УРОКУ */
+  function questLucky() {
+    const C = window.CONFIG || {}, share = typeof C.QUEST_SHARE === "number" ? C.QUEST_SHARE : 1;
+    let roll = null;
+    try { roll = localStorage.getItem("qg:roll"); if (roll == null) { roll = String(Math.random()); localStorage.setItem("qg:roll", roll); } } catch (e) { roll = null; }
+    return roll != null && +roll < share;
+  }
   function renderLesson(l) {
     document.title = `Урок ${l.n}. ${l.title}`;
     $("lessonView").hidden = false;
@@ -141,8 +147,9 @@
       $("notes").innerHTML = html;
       $("notesWrap").hidden = false;
     });
-    // конспект-гра (бета): quest.html?q=<id>, відкривається без коду уроку
-    $("questWrap").hidden = !l.quest;
+    // конспект-гра (бета): quest.html?q=<id>, без коду уроку. Кнопка є лише на частині пристроїв
+    // (CONFIG.QUEST_SHARE, жереб один раз на пристрій) — щоб гра була цінністю, а не звичайною кнопкою
+    $("questWrap").hidden = !(l.quest && questLucky());
     if (l.quest) $("questLink").href = `quest.html?q=${l.quest}`;
     const key = $("key"); key.innerHTML = "";
     (l.key || []).forEach((k) => key.appendChild(el("li", "", k)));

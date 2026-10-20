@@ -1,42 +1,39 @@
 /* =====================================================================
-   Квести: учень ходить картою й розмовляє з персонажами.
-   Сторінка: quest.html?q=<id файлу в quests/>, наприклад quest.html?q=7-07.
+   Конспект-гра: ядро уроку. Сторінка quest.html?q=<id файлу в quests/>.
 
-   Урок-квест замість конспекту: персонажі розповідають теорію, учень записує в паперовий зошит,
-   гра перевіряє пропущеними словами й діями. Станції відкриваються по черзі.
+   Ядро веде урок: розмова з персонажами крок за кроком, картки «✍️ Запиши» (учень пише в
+   паперовий зошит), перевірки зі схованим текстом, бали, зошит, результат, опитування бети,
+   таблиця лідерів класу. Світ-гра (assets/worlds/<world>.js) лише малює карту, рухає героя й
+   вирішує, коли учень «підійшов» до персонажа. Світ може додати свої перевірки-міні-ігри.
 
    Формат файлу quests/<id>.js:
    QUEST.add({
-     id, grade, lesson, title, intro,
-     rooms: [{ id, name, decor: "cinema|booth|pcs|workshop|library|museum", row: 0|1, col: 0|1|2 }],
+     id, grade, lesson, title, intro, world: "studio|arena|runner|blocky|range", theme?: {…для світу},
      stations: [{
-       room, at: [fx, fy] (частки кімнати), topic,
-       optional?  — ⭐ (відкривається після всіх основних, можна пропустити),
-       final?     — останній персонаж; після нього — результат,
-       npc: { name, look: "#колір", hat: "cap|bun|long|short|beret|pony|messy", glasses? },
+       topic, optional?: ⭐ (після всіх основних, можна пропустити), final?: останній персонаж,
+       npc: { name, look: "#колір", hat?, glasses? },  …плюс поля, потрібні світу (room/at для studio)
        steps: [ — кроки розмови, по одному на екран:
-         { t: "say", text: "**жирне** можна", table?: [[заголовки], [рядок]…], write?: true }  — write: перепиши таблицю
-         { t: "write", term?, def?, rule?, sec? }  — «✍️ Запиши»; кнопка оживає через sec (або за довжиною тексту)
-         { t: "demo", kind: "fps|flip|tour|spin|markers", text }  — жива демонстрація; «Далі» — коли спробував
-         { t: "gate" }  — у фіналі: запропонувати ⭐ станції, якщо їх не пройдено
-         { t: "check", type, … }  — 1 бал; текст сховано, учень користується зошитом:
-           cloze   { text: "… [[слово|варіант]] …" }                       — впиши пропущені слова
-           choice  { v: [["питання", ["правильна", "хибна", …], "пояснення"], …] }
-           calc    { gen: (R) => ({ q, ans: число, unit, x }) }           — числа свої для кожного учня
-           order   { v: [{ q, items: [у правильному порядку], x }] }
-           spot    { v: [{ q, target: "top|tools|stage|palette|params|layers|timeline|play" }] }
-           markers { v: [{ goal: "move|size|rotate", q }] }
-           form    {}  — «Новий проєкт» Стрибок_Прізвище, 640×480, 24, світло-блакитний, «Зберегти»
+         { t: "say", text: "**жирне** можна", table?: [[заголовки], [рядок]…], write?: true }
+         { t: "write", term?, def?, rule?, sec? }  — «✍️ Запиши»; кнопка оживає через sec (або за довжиною)
+         { t: "demo", kind, text }                — жива демонстрація; «Далі» — коли спробував
+         { t: "gate" }                            — у фіналі: запропонувати ⭐, якщо не пройдено
+         { t: "check", type, … }                  — 1 бал, текст сховано, учень користується зошитом:
+           cloze  { text: "… [[слово|варіант]] …" } · choice { v: [["питання", ["правильна", …], "пояснення"]] }
+           calc   { gen: (R) => ({ q, ans, unit, x }) } · order { v: [{ q, items, x }] }
+           sort   { v: [{ q, groups: [назви], items: [["текст", № групи]], x }] }
+           spot / markers / form — вікно «Аніматора» (7 клас)
+           <будь-що інше> — міні-гра світу: діалог ховається, світ грає й повертає done(ok, пояснення)
        ]
      }]
    });
-   Оцінка = бали за перевірки / кількість перевірок · 12. Результат летить у ту саму таблицю, що й тести.
+   Оцінка = бали / перевірки · 12. Результати — у ту саму таблицю, що й тести; лідери — action "board".
    ===================================================================== */
 (function () {
   "use strict";
   const CFG = window.CONFIG || {};
   const LIST = [];
   window.QUEST = { add: (q) => LIST.push(q) };
+  window.QWORLDS = window.QWORLDS || {};
 
   const $ = (s, r = document) => r.querySelector(s);
   const el = (tag, cls, html) => { const e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; };
@@ -53,239 +50,64 @@
   };
   const normName = (s) => String(s || "").toLowerCase().replace(/[’ʼ`']/g, "'").replace(/\s+/g, " ").trim();
   const personKey = (s) => normName(s).split(" ").filter(Boolean).sort().join(" ");
+  const fmtTime = (sec) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, "0")}`;
+  // у таблиці лідерів — «Софія К.» (ім'я + перша літера прізвища): учні вводять «Прізвище Ім'я»
+  const shortName = (s) => { const w = String(s || "").trim().split(/\s+/); return w.length < 2 ? w[0] || "" : `${w[1]} ${w[0][0]}.`; };
 
-  /* ---------------------------------------------------------- геометрія */
-  const WW = 1600, WH = 1100, CX = [30, 560, 1040, 1570], ROWS = [[30, 470], [630, 1070]], COR = [470, 630];
-  const WT = 14, DOOR = 120, PR = 14, TALK_R = 96;
-  const rect = (x, y, w, h) => ({ x, y, w, h });
-  const roomRect = (r) => { const [y0, y1] = ROWS[r.row]; return rect(CX[r.col], y0, CX[r.col + 1] - CX[r.col], y1 - y0); };
-  const doorX = (rr) => rr.x + rr.w / 2;
+  let toastT = 0;
+  function toast(t, ms = 2600) { const e = $("#toast"); e.textContent = t; e.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { e.hidden = true; }, ms); }
+  function loadScript(src) { return new Promise((ok, bad) => { const s = document.createElement("script"); s.src = src; s.onload = ok; s.onerror = bad; document.head.append(s); }); }
+  const VER = "202610202148"; // мітка для світів і quests/*.js — міняти разом із bump_version.py
 
-  function buildWalls(rooms) {
-    const w = [rect(16, 16, WW - 32, WT), rect(16, WH - 30, WW - 32, WT), rect(16, 16, WT, WH - 32), rect(WW - 30, 16, WT, WH - 32)];
-    for (const x of [CX[1], CX[2]]) { w.push(rect(x - 7, ROWS[0][0], 14, ROWS[0][1] - ROWS[0][0])); w.push(rect(x - 7, ROWS[1][0], 14, ROWS[1][1] - ROWS[1][0])); }
-    for (const r of rooms) {
-      const rr = roomRect(r), dc = doorX(rr), y = r.row ? ROWS[1][0] : ROWS[0][1] - WT;
-      w.push(rect(rr.x, y, dc - DOOR / 2 - rr.x, WT), rect(dc + DOOR / 2, y, rr.x + rr.w - dc - DOOR / 2, WT));
-    }
-    return w;
-  }
-
-  /* ---------------------------------------------------------- оздоблення кімнат */
-  // f(rr) → { floor, solids: [rect], draw(ctx, t) }. Координати — частки кімнати.
-  const F = (rr, fx, fy, fw, fh) => rect(rr.x + fx * rr.w, rr.y + fy * rr.h, fw * rr.w, fh * rr.h);
-  function rrect(ctx, x, y, w, h, r) { ctx.beginPath(); ctx.roundRect ? ctx.roundRect(x, y, w, h, r) : ctx.rect(x, y, w, h); }
-  function box(ctx, b, fill, stroke, r = 6) { rrect(ctx, b.x, b.y, b.w, b.h, r); ctx.fillStyle = fill; ctx.fill(); if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 2; ctx.stroke(); } }
-  function label(ctx, txt, x, y, size = 13, color = "#1f2937", align = "center") { ctx.font = `600 ${size}px Rubik, system-ui, sans-serif`; ctx.fillStyle = color; ctx.textAlign = align; ctx.textBaseline = "middle"; ctx.fillText(txt, x, y); }
-  function emoji(ctx, e, x, y, size) { ctx.font = `${size}px "Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif`; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(e, x, y); }
-
-  const DECOR = {
-    cinema(rr) {
-      const screen = F(rr, 0.08, 0.035, 0.84, 0.07), proj = F(rr, 0.05, 0.36, 0.07, 0.1);
-      const rows = [0.34, 0.48, 0.62].map((fy) => F(rr, 0.32, fy, 0.36, 0.06));
-      return {
-        floor: ["#3b1f4a", "#43244f"], solids: [screen, proj, ...rows],
-        draw(ctx, t) {
-          box(ctx, screen, "#f8fafc", "#cbd5e1", 4);
-          // на екрані — справжня анімація: 8 кадрів/с, м'яч стрибає
-          const fr = Math.floor(t * 8) % 16, ph = fr < 8 ? fr / 8 : (16 - fr) / 8;
-          const bx = screen.x + screen.w * (0.12 + 0.76 * (fr / 15)), by = screen.y + screen.h * (0.78 - 0.55 * Math.sin(ph * Math.PI));
-          ctx.fillStyle = "#cbd5e1"; ctx.fillRect(screen.x + 6, screen.y + screen.h - 6, screen.w - 12, 2);
-          ctx.beginPath(); ctx.arc(bx, by, 7, 0, 7); ctx.fillStyle = "#f97316"; ctx.fill();
-          label(ctx, `кадр ${fr + 1}`, screen.x + screen.w - 34, screen.y + 10, 10, "#64748b");
-          box(ctx, proj, "#1f2937", "#111827", 5); ctx.beginPath(); ctx.arc(proj.x + proj.w / 2, proj.y + 8, 7, 0, 7); ctx.fillStyle = "#94a3b8"; ctx.fill();
-          ctx.save(); ctx.globalAlpha = 0.08; ctx.fillStyle = "#fef9c3"; ctx.beginPath(); ctx.moveTo(proj.x + proj.w / 2, proj.y); ctx.lineTo(screen.x + 20, screen.y + screen.h); ctx.lineTo(screen.x + screen.w * 0.6, screen.y + screen.h); ctx.fill(); ctx.restore();
-          for (const r of rows) { const n = 7, sw = r.w / n; for (let i = 0; i < n; i++) { rrect(ctx, r.x + i * sw + 2, r.y, sw - 4, r.h, 5); ctx.fillStyle = "#b91c1c"; ctx.fill(); ctx.fillStyle = "#7f1d1d"; ctx.fillRect(r.x + i * sw + 2, r.y + r.h - 6, sw - 4, 6); } }
-        }
-      };
-    },
-    booth(rr) {
-      const counter = F(rr, 0.1, 0.44, 0.42, 0.06), pop = F(rr, 0.84, 0.12, 0.1, 0.12), sofa = F(rr, 0.12, 0.82, 0.3, 0.08);
-      return {
-        floor: ["#f1e7d0", "#e7d9bb"], solids: [counter, pop, sofa],
-        draw(ctx) {
-          const posters = [["24", "кадр/с"], ["25", "кадр/с"], ["30", "кадр/с"]];
-          posters.forEach((p, i) => { const b = F(rr, 0.12 + i * 0.16, 0.035, 0.12, 0.09); box(ctx, b, ["#1d4ed8", "#be185d", "#047857"][i], "#0f172a", 4); label(ctx, p[0], b.x + b.w / 2, b.y + b.h * 0.4, 15, "#fff"); label(ctx, p[1], b.x + b.w / 2, b.y + b.h * 0.78, 9, "#e2e8f0"); });
-          box(ctx, counter, "#92400e", "#78350f", 4); ctx.fillStyle = "#fbbf24"; ctx.fillRect(counter.x, counter.y, counter.w, 5);
-          emoji(ctx, "🎟️", counter.x + counter.w * 0.75, counter.y + counter.h / 2, 16);
-          box(ctx, pop, "#dc2626", "#7f1d1d", 4); emoji(ctx, "🍿", pop.x + pop.w / 2, pop.y + pop.h / 2, 22);
-          box(ctx, sofa, "#7c3aed", "#5b21b6", 8);
-          label(ctx, "КАСА", counter.x + counter.w / 2, counter.y - 52, 12, "#78350f");
-        }
-      };
-    },
-    pcs(rr) {
-      const d1 = F(rr, 0.3, 0.12, 0.42, 0.08), d2 = F(rr, 0.32, 0.48, 0.4, 0.08), cab = F(rr, 0.88, 0.75, 0.07, 0.15);
-      return {
-        floor: ["#dbeafe", "#cfe0fb"], solids: [d1, d2, cab],
-        draw(ctx, t) {
-          for (const d of [d1, d2]) {
-            box(ctx, d, "#e5e7eb", "#9ca3af", 4);
-            const n = 3, sw = d.w / n;
-            for (let i = 0; i < n; i++) {
-              const m = rect(d.x + i * sw + 8, d.y - 14, sw - 16, 20); box(ctx, m, "#111827", "#374151", 3);
-              // на моніторах — шкала кадрів з бігунком
-              ctx.fillStyle = "#334155"; ctx.fillRect(m.x + 3, m.y + m.h - 6, m.w - 6, 3);
-              ctx.fillStyle = "#f97316"; ctx.fillRect(m.x + 3 + ((t * 20 + i * 13) % (m.w - 8)), m.y + m.h - 8, 2, 7);
-              ctx.fillStyle = "#38bdf8"; ctx.fillRect(m.x + 4, m.y + 3, (m.w - 8) * 0.4, 6);
-            }
-          }
-          box(ctx, cab, "#64748b", "#334155", 3); label(ctx, "🖨", cab.x + cab.w / 2, cab.y + cab.h / 2, 14);
-        }
-      };
-    },
-    workshop(rr) {
-      const t1 = F(rr, 0.08, 0.32, 0.22, 0.14), t2 = F(rr, 0.7, 0.32, 0.22, 0.14), easel = F(rr, 0.1, 0.72, 0.08, 0.12), lb = F(rr, 0.78, 0.72, 0.14, 0.1);
-      return {
-        floor: ["#d6b88f", "#cdad81"], solids: [t1, t2, easel, lb],
-        draw(ctx, t) {
-          for (const tb of [t1, t2]) {
-            box(ctx, tb, "#a16207", "#713f12", 6);
-            for (let i = 0; i < 4; i++) { ctx.save(); ctx.translate(tb.x + 18 + i * (tb.w - 30) / 3, tb.y + tb.h / 2); ctx.rotate((i - 1.5) * 0.12); ctx.fillStyle = "#fffbeb"; ctx.fillRect(-11, -14, 22, 28); ctx.restore(); }
-          }
-          box(ctx, easel, "#78350f", null, 3); const fr = Math.floor(t * 4) % 5; emoji(ctx, ["🌰", "🌱", "🌿", "🌷", "🌸"][fr], easel.x + easel.w / 2, easel.y + easel.h / 2, 22);
-          box(ctx, lb, "#fef9c3", "#ca8a04", 4); label(ctx, "світловий стіл", lb.x + lb.w / 2, lb.y + lb.h / 2, 9, "#854d0e");
-        }
-      };
-    },
-    library(rr) {
-      const sh = F(rr, 0.04, 0.84, 0.92, 0.1), sl = F(rr, 0.03, 0.2, 0.06, 0.5), sr = F(rr, 0.91, 0.2, 0.06, 0.5);
-      const dl = F(rr, 0.18, 0.4, 0.16, 0.1), dr = F(rr, 0.66, 0.4, 0.16, 0.1);
-      return {
-        floor: ["#efe2c6", "#e6d5b2"], solids: [sh, sl, sr, dl, dr],
-        draw(ctx) {
-          const books = ["#ef4444", "#3b82f6", "#22c55e", "#eab308", "#a855f7", "#f97316"];
-          for (const s of [sh, sl, sr]) {
-            box(ctx, s, "#7c2d12", null, 3);
-            const horiz = s.w > s.h, n = Math.floor((horiz ? s.w : s.h) / 9);
-            for (let i = 0; i < n; i++) { ctx.fillStyle = books[(i * 7) % books.length]; if (horiz) ctx.fillRect(s.x + 3 + i * 9, s.y + 4, 7, s.h - 8); else ctx.fillRect(s.x + 4, s.y + 3 + i * 9, s.w - 8, 7); }
-          }
-          for (const d of [dl, dr]) { box(ctx, d, "#b45309", "#78350f", 4); emoji(ctx, "📖", d.x + d.w / 2, d.y + d.h / 2, 16); }
-        }
-      };
-    },
-    museum(rr) {
-      const ped = F(rr, 0.06, 0.38, 0.07, 0.08), cam = F(rr, 0.32, 0.8, 0.08, 0.09), cas = F(rr, 0.42, 0.26, 0.16, 0.12), desk = F(rr, 0.88, 0.32, 0.08, 0.2);
-      return {
-        floor: ["#f5f5f4", "#e7e5e4"], solids: [ped, cam, cas, desk],
-        draw(ctx, t) {
-          box(ctx, ped, "#d6d3d1", "#78716c", 4);
-          // тауматроп на постаменті крутиться
-          const c = Math.cos(t * 9); ctx.save(); ctx.translate(ped.x + ped.w / 2, ped.y - 6); ctx.scale(Math.abs(c) * 0.9 + 0.1, 1); ctx.beginPath(); ctx.arc(0, 0, 12, 0, 7); ctx.fillStyle = "#fff"; ctx.fill(); ctx.strokeStyle = "#78716c"; ctx.stroke(); emoji(ctx, c > 0 ? "🐦" : "▦", 0, 0, 12); ctx.restore();
-          box(ctx, cam, "#292524", "#0c0a09", 4); emoji(ctx, "🎥", cam.x + cam.w / 2, cam.y + cam.h / 2, 18);
-          const poster = F(rr, 0.44, 0.9, 0.14, 0.08); box(ctx, poster, "#fde68a", "#92400e", 3); label(ctx, "1927 · Бичок", poster.x + poster.w / 2, poster.y + poster.h / 2, 9, "#78350f");
-          box(ctx, cas, "rgba(186,230,253,.6)", "#0284c7", 4); emoji(ctx, "🎞️", cas.x + cas.w / 2, cas.y + cas.h / 2, 18);
-          box(ctx, desk, "#1e3a8a", "#172554", 4);
-          for (let i = 0; i < 3; i++) { const p = F(rr, 0.08 + i * 0.3, 0.035, 0.12, 0.08); box(ctx, p, "#fafaf9", "#a8a29e", 3); label(ctx, "⭐", p.x + p.w / 2, p.y + p.h / 2, 12, "#ca8a04"); }
-        }
-      };
-    }
-  };
-
-  /* ---------------------------------------------------------- зіткнення й шлях */
-  let SOLIDS = [];
-  function hits(x, y, r = PR) {
-    if (x < 30 + r || y < 30 + r || x > WW - 30 - r || y > WH - 30 - r) return true;
-    for (const s of SOLIDS) {
-      const cx = clamp(x, s.x, s.x + s.w), cy = clamp(y, s.y, s.y + s.h), dx = x - cx, dy = y - cy;
-      if (dx * dx + dy * dy < r * r) return true;
-    }
-    return false;
-  }
-  function lineFree(a, b) {
-    const d = Math.hypot(b.x - a.x, b.y - a.y), n = Math.ceil(d / 8);
-    for (let i = 1; i <= n; i++) { const t = i / n; if (hits(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t, PR + 1)) return false; }
-    return true;
-  }
-  const CELL = 20, GW = Math.ceil(WW / CELL), GH = Math.ceil(WH / CELL);
-  let GRID = null;
-  function buildGrid() { GRID = new Uint8Array(GW * GH); for (let j = 0; j < GH; j++) for (let i = 0; i < GW; i++) GRID[j * GW + i] = hits(i * CELL + CELL / 2, j * CELL + CELL / 2, PR + 2) ? 1 : 0; }
-  // A* по сітці; goal(i, j) — чи підходить клітинка; h — оцінка до цілі
-  function findPath(from, tx, ty, goalR) {
-    const si = clamp(Math.floor(from.x / CELL), 0, GW - 1), sj = clamp(Math.floor(from.y / CELL), 0, GH - 1);
-    const g = new Float32Array(GW * GH).fill(1e9), prev = new Int32Array(GW * GH).fill(-1), closed = new Uint8Array(GW * GH);
-    const heap = []; const push = (k, f) => { heap.push([f, k]); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
-    const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { const l = 2 * i + 1, r = l + 1; let m = i; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top[1]; };
-    const s = sj * GW + si; g[s] = 0; push(s, 0);
-    const H = (i, j) => Math.hypot(i * CELL + CELL / 2 - tx, j * CELL + CELL / 2 - ty);
-    let found = -1, guard = 0;
-    while (heap.length && guard++ < 20000) {
-      const k = pop(); if (closed[k]) continue; closed[k] = 1;
-      const i = k % GW, j = (k - i) / GW;
-      if (H(i, j) <= goalR) { found = k; break; }
-      for (let dj = -1; dj <= 1; dj++) for (let di = -1; di <= 1; di++) {
-        if (!di && !dj) continue; const ni = i + di, nj = j + dj; if (ni < 0 || nj < 0 || ni >= GW || nj >= GH) continue;
-        const nk = nj * GW + ni; if (GRID[nk] || closed[nk]) continue;
-        if (di && dj && (GRID[j * GW + ni] || GRID[nj * GW + i])) continue;
-        const ng = g[k] + (di && dj ? 1.414 : 1); if (ng < g[nk]) { g[nk] = ng; prev[nk] = k; push(nk, ng + H(ni, nj) / CELL); }
-      }
-    }
-    if (found < 0) return null;
-    const pts = []; for (let k = found; k !== -1 && k !== s; k = prev[k]) { const i = k % GW; pts.push({ x: i * CELL + CELL / 2, y: (k - i) / GW * CELL + CELL / 2 }); }
-    pts.reverse();
-    // «натягнута нитка»: пропускаємо точки, до яких видно напряму
-    const out = []; let cur = from, i = 0;
-    while (i < pts.length) { let j = pts.length - 1; while (j > i && !lineFree(cur, pts[j])) j--; out.push(pts[j]); cur = pts[j]; i = j + 1; }
-    return out;
-  }
-
-  /* ---------------------------------------------------------- малювання персонажів */
-  function drawPerson(ctx, x, y, look, opt = {}) {
-    const bob = opt.walk ? Math.sin(opt.t * 14) * 1.5 : 0;
-    ctx.save(); ctx.translate(x, y + bob);
-    ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.beginPath(); ctx.ellipse(0, 15 - bob, 15, 6, 0, 0, 7); ctx.fill();
-    rrect(ctx, -12, -4, 24, 20, 9); ctx.fillStyle = look; ctx.fill();
-    ctx.beginPath(); ctx.arc(0, -12, 11, 0, 7); ctx.fillStyle = "#fcd9b8"; ctx.fill();
-    const hair = opt.hair || "#3f2a1d"; ctx.fillStyle = hair;
-    const h = opt.hat;
-    if (h === "cap") { ctx.beginPath(); ctx.arc(0, -15, 11, Math.PI, 0); ctx.fill(); ctx.fillRect(opt.dir < 0 ? -18 : 2, -16, 16, 4); }
-    else if (h === "bun") { ctx.beginPath(); ctx.arc(0, -15, 11, Math.PI, 0); ctx.fill(); ctx.beginPath(); ctx.arc(0, -26, 6, 0, 7); ctx.fill(); }
-    else if (h === "long") { ctx.beginPath(); ctx.arc(0, -14, 12, Math.PI, 0); ctx.fill(); ctx.fillRect(-12, -14, 5, 16); ctx.fillRect(7, -14, 5, 16); }
-    else if (h === "beret") { ctx.fillStyle = "#b91c1c"; ctx.beginPath(); ctx.ellipse(-2, -21, 12, 5, -0.2, 0, 7); ctx.fill(); }
-    else if (h === "pony") { ctx.beginPath(); ctx.arc(0, -15, 11, Math.PI, 0); ctx.fill(); ctx.beginPath(); ctx.ellipse(12, -10, 4, 9, 0.3, 0, 7); ctx.fill(); }
-    else if (h === "messy") { for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.arc(i * 4, -21 + Math.abs(i), 4, 0, 7); ctx.fill(); } }
-    else { ctx.beginPath(); ctx.arc(0, -15, 11, Math.PI, 0); ctx.fill(); }
-    ctx.fillStyle = "#1f2937"; const ex = (opt.dir || 0) * 2;
-    ctx.beginPath(); ctx.arc(-4 + ex, -11, 1.6, 0, 7); ctx.arc(4 + ex, -11, 1.6, 0, 7); ctx.fill();
-    if (opt.glasses) { ctx.strokeStyle = "#1f2937"; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(-4 + ex, -11, 3.4, 0, 7); ctx.moveTo(7.4 + ex, -11); ctx.arc(4 + ex, -11, 3.4, 0, 7); ctx.stroke(); }
-    ctx.restore();
-  }
-
-  /* ================================================================ ГРА */
-  function run(Q) {
+  /* ================================================================ УРОК */
+  function run(Q, W) {
     document.title = Q.title;
+    document.body.dataset.world = Q.world;
     const KEY = `qs:${Q.id}`;
-    const rooms = Q.rooms.map((r) => ({ ...r, rr: roomRect(r) }));
-    const roomOf = (id) => rooms.find((r) => r.id === id);
-    const deco = rooms.map((r) => ({ room: r, d: DECOR[r.decor](r.rr) }));
-    const stations = Q.stations.map((s, i) => { const rr = roomOf(s.room).rr; return { ...s, i, x: rr.x + s.at[0] * rr.w, y: rr.y + s.at[1] * rr.h, roomName: roomOf(s.room).name.replace("⭐ ", "") }; });
-    const npcSolid = (s) => rect(s.x - 13, s.y - 6, 26, 22);
-    const WALLS = buildWalls(rooms);
-    SOLIDS = WALLS.concat(...deco.map((d) => d.d.solids)).concat(stations.map(npcSolid));
-    buildGrid();
+    const stations = Q.stations.map((s, i) => ({ ...s, i }));
     const N = stations.length;
     const CHECKS = [];
     stations.forEach((s) => s.steps.forEach((p, k) => { if (p.t === "check") CHECKS.push(`${s.i}:${k}`); }));
 
     /* -------- стан */
-    let st = null; // { cls, name, start, done: {i: 1}, checks: {"i:k": 0|1}, notes: [i…], viol, x, y }
+    let st = null; // { cls, name, start, done: {i: 1}, checks: {"i:k": 0|1}, notes: [...], viol, coins, world: {...} }
     const saveSt = () => { if (st) store.set(KEY + ":run", st); };
-    const P = { x: 380, y: 550, dir: 1, path: null, goal: null, moving: false };
-    let paused = true, openSt = null;
+    let paused = true, openSt = null, nearSt = null;
     const isDone = (s) => !!(st && st.done[s.i]);
     const basics = stations.filter((s) => !s.optional && !s.final);
-    // доступна, якщо пройдено всі обов'язкові станції перед нею; ⭐ і фінал — після всіх обов'язкових
     const available = (s) => !st ? false : (s.optional || s.final) ? basics.every(isDone) : basics.filter((b) => b.i < s.i).every(isDone);
     const score = () => CHECKS.reduce((a, k) => a + (st.checks[k] || 0), 0);
+    const nextStation = () => !st ? null : stations.find((s) => !isDone(s) && available(s) && !s.final) || stations.find((s) => !isDone(s) && available(s)) || null;
 
-    /* -------- DOM */
-    const cv = $("#world"), ctx = cv.getContext("2d");
-    const hud = $("#hud"), list = $("#qList"), bar = $("#qBar i"), prog = $("#qProg"), nextEl = $("#qNext"), talkBtn = $("#talk");
+    /* -------- API для світу */
+    const core = {
+      Q, stations, R, el, esc, clamp, toast, store,
+      get paused() { return paused; },
+      get st() { return st; },
+      isDone, available, next: nextStation,
+      open: (s) => openStation(s),
+      near(s) { // світ повідомляє, біля кого стоїть герой
+        if (s === nearSt) return; nearSt = s;
+        const b = $("#talk");
+        if (s && !paused) { b.hidden = false; b.innerHTML = `💬 ${esc(s.npc.name)} <kbd>E</kbd>`; } else b.hidden = true;
+      },
+      lockedToast(s) {
+        const nx = nextStation();
+        toast(`${s.optional || s.final ? "Сюди — після всіх основних станцій." : "Не поспішай — усе по черзі."} Зараз: ${nx ? nx.npc.name + (nx.place ? " (" + nx.place + ")" : "") : ""}`, 3500);
+      },
+      addCoins(n) { if (!st) return; st.coins = (st.coins || 0) + n; $("#coins").textContent = st.coins; $("#coinBox").classList.remove("bump"); void $("#coinBox").offsetWidth; $("#coinBox").classList.add("bump"); },
+      save: saveSt
+    };
+    const world = W.init(core, $("#stage")) || {};
+
+    /* -------- старт */
     $("#qTitle").textContent = Q.title;
     $("#sTitle").textContent = Q.title;
     $("#sIntro").textContent = Q.intro;
-    $("#sEyebrow").textContent = `${Q.grade} клас · урок ${Q.lesson} · 🕹️ урок-квест`;
+    $("#sEyebrow").textContent = `${Q.grade} клас · урок ${Q.lesson} · 🕹️ конспект-гра · бета`;
     $("#backLink").href = `index.html?l=${Q.grade}-${String(Q.lesson).padStart(2, "0")}`;
+    if (W.keys) $("#keysHint").textContent = W.keys;
+    if (W.howto) $("#sHow").innerHTML = W.howto.map((t) => `<li>${t}</li>`).join("") + $("#sHow").innerHTML;
 
     const clsSel = $("#cls"), nameIn = $("#name"), goBtn = $("#go");
     const classes = (CFG.CLASSES || []).filter((c) => c.startsWith(String(Q.grade)));
@@ -293,12 +115,14 @@
     const last = store.get("qz:me", null);
     if (last) { if (classes.includes(last.cls)) clsSel.value = last.cls; nameIn.value = last.name || ""; }
     const ready = () => { goBtn.disabled = !(clsSel.value && nameIn.value.trim().split(/\s+/).length >= 2); };
-    clsSel.onchange = nameIn.oninput = ready; ready();
+    clsSel.onchange = () => { ready(); showBoard($("#sBoard"), clsSel.value, 5); };
+    nameIn.oninput = ready; ready();
+    if (clsSel.value) showBoard($("#sBoard"), clsSel.value, 5);
 
     const saved = store.get(KEY + ":run", null);
     if (saved && !saved.finished && saved.done && Object.keys(saved.done).length) {
       $("#resume").hidden = false;
-      $("#resume").innerHTML = `Є незавершений урок: <b>${esc(saved.name)}</b>, пройдено ${Object.keys(saved.done).length} з ${N}. Натисни «Почати» з тим самим іменем — продовжиш з того місця.`;
+      $("#resume").innerHTML = `Є незавершена гра: <b>${esc(saved.name)}</b>, пройдено ${Object.keys(saved.done).length} з ${N}. Натисни «Почати» з тим самим іменем — продовжиш з того місця. Час теж іде далі.`;
     }
 
     goBtn.onclick = () => {
@@ -306,150 +130,57 @@
       store.set("qz:me", { cls, name });
       const prev = store.get(KEY + ":run", null);
       if (prev && !prev.finished && prev.checks && prev.cls === cls && personKey(prev.name) === personKey(name)) st = prev;
-      else st = { cls, name, start: Date.now(), done: {}, checks: {}, notes: [], viol: 0, x: 380, y: 550 };
-      P.x = st.x; P.y = st.y;
-      $("#start").hidden = true; hud.hidden = false; paused = false;
+      else st = { cls, name, start: Date.now(), done: {}, checks: {}, notes: [], viol: 0, coins: 0, world: {} };
+      $("#start").hidden = true; $("#hud").hidden = false; paused = false;
       renderHud(); saveSt();
-      toast("Іди до того, у кого над головою «!» — клацни по ньому або підійди й натисни E", 5000);
+      world.start && world.start(st.world);
+      toast(W.startHint || "Іди до того, у кого над головою «!»", 5000);
     };
 
     /* -------- HUD */
     function renderHud() {
       const done = stations.filter(isDone).length;
-      prog.textContent = `Пройдено ${done} з ${N}`;
-      bar.style.width = (done / N * 100) + "%";
-      list.innerHTML = "";
+      $("#qProg").textContent = `Пройдено ${done} з ${N}`;
+      $("#qBar i").style.width = (done / N * 100) + "%";
+      const list = $("#qList"); list.innerHTML = "";
       stations.forEach((s) => {
         const li = el("li", isDone(s) ? "ok" : available(s) ? "" : "lock");
-        li.innerHTML = `<span class="box"></span><span><b>${esc(s.topic || s.npc.name)}</b><small>${esc(s.npc.name)} · ${esc(s.roomName)}${s.optional ? " · ⭐ на 12" : ""}</small></span>`;
-        li.onclick = () => { goTo(s); };
+        li.innerHTML = `<span class="box"></span><span><b>${esc(s.topic || s.npc.name)}</b><small>${esc(s.npc.name)}${s.place ? " · " + esc(s.place) : ""}${s.optional ? " · ⭐ на 12" : ""}</small></span>`;
+        li.onclick = () => { $("#hud").classList.remove("open"); if (!available(s)) core.lockedToast(s); else world.goTo && world.goTo(s); };
         list.appendChild(li);
       });
       $("#bookN").textContent = st.notes.length;
+      $("#coins").textContent = st.coins || 0;
+      const nx = nextStation();
+      $("#qNext").innerHTML = nx ? `${nx.optional ? "⭐ " : ""}Далі: <b>${esc(nx.npc.name)}</b>${nx.place ? " · " + esc(nx.place) : ""}` : "Урок пройдено!";
+      world.refresh && world.refresh();
     }
-    function nextStation() {
-      return stations.find((s) => !isDone(s) && available(s) && !s.final) || stations.find((s) => !isDone(s) && available(s)) || null;
-    }
-    $("#listToggle").onclick = () => hud.classList.toggle("open");
-
-    /* -------- рух */
-    const keys = new Set();
-    const KM = { ArrowUp: "u", KeyW: "u", ArrowDown: "d", KeyS: "d", ArrowLeft: "l", KeyA: "l", ArrowRight: "r", KeyD: "r" };
+    core.renderHud = renderHud;
+    $("#listToggle").onclick = () => $("#hud").classList.toggle("open");
+    $("#qNext").onclick = () => { const nx = nextStation(); if (nx && world.goTo && !paused) world.goTo(nx, true); };
+    $("#talk").onclick = () => { if (nearSt) openStation(nearSt); };
     addEventListener("keydown", (e) => {
       if (e.target.closest && e.target.closest("input,textarea,select")) return;
-      if (KM[e.code] && !paused) { keys.add(KM[e.code]); P.path = null; P.goal = null; e.preventDefault(); }
-      if ((e.code === "KeyE" || e.code === "Enter" || e.code === "Space") && !paused && near) { e.preventDefault(); openStation(near); }
-      if (e.code === "KeyN" && !paused) openBook();
+      if ((e.code === "KeyE" || e.code === "Enter") && !paused && nearSt) { e.preventDefault(); openStation(nearSt); }
+      if (e.code === "KeyN" && !paused && st) openBook();
       if (e.code === "Escape") closeBook();
     });
-    addEventListener("keyup", (e) => { if (KM[e.code]) keys.delete(KM[e.code]); });
-    addEventListener("blur", () => keys.clear());
-
-    function goTo(s) {
-      if (paused) return;
-      hud.classList.remove("open");
-      if (!available(s)) { lockedToast(s); return; }
-      const path = findPath(P, s.x, s.y, TALK_R - 30);
-      if (path) { P.path = path; P.goal = s; }
-    }
-    function lockedToast(s) {
-      const nx = nextStation();
-      toast(`${s.optional || s.final ? "Сюди — після всіх основних станцій." : "Не поспішай — усе по черзі."} Зараз іди до: ${nx ? nx.npc.name + " (" + nx.roomName + ")" : ""}`, 3500);
-    }
-    let cam = { x: P.x, y: P.y, z: 1 }, marker = null;
-    cv.addEventListener("pointerdown", (e) => {
-      if (paused) return;
-      const r = cv.getBoundingClientRect(), wx = (e.clientX - r.left - r.width / 2) / cam.z + cam.x, wy = (e.clientY - r.top - r.height / 2) / cam.z + cam.y;
-      const hit = stations.find((s) => Math.hypot(s.x - wx, s.y - wy + 8) < 34);
-      if (hit) { if (Math.hypot(hit.x - P.x, hit.y - P.y) < TALK_R) openStation(hit); else goTo(hit); return; }
-      const path = findPath(P, wx, wy, 14);
-      if (path) { P.path = path; P.goal = null; marker = { x: wx, y: wy, t: 0 }; }
-    });
-
-    let near = null;
-    function update(dt) {
-      let vx = 0, vy = 0;
-      if (keys.has("u")) vy--; if (keys.has("d")) vy++; if (keys.has("l")) vx--; if (keys.has("r")) vx++;
-      const sp = 250;
-      if (vx || vy) { const l = Math.hypot(vx, vy); vx = vx / l * sp; vy = vy / l * sp; }
-      else if (P.path && P.path.length) {
-        const w = P.path[0], dx = w.x - P.x, dy = w.y - P.y, d = Math.hypot(dx, dy);
-        if (d < 6) P.path.shift(); else { vx = dx / d * sp; vy = dy / d * sp; }
-        if (!P.path.length) P.path = null;
-      }
-      P.moving = !!(vx || vy);
-      if (P.moving) {
-        if (Math.abs(vx) > 1) P.dir = vx > 0 ? 1 : -1;
-        const nx = P.x + vx * dt, ny = P.y + vy * dt;
-        if (!hits(nx, P.y)) P.x = nx; if (!hits(P.x, ny)) P.y = ny;
-      }
-      near = null; let nd = TALK_R;
-      for (const s of stations) { const d = Math.hypot(s.x - P.x, s.y - P.y); if (d < nd) { nd = d; near = s; } }
-      if (P.goal && near === P.goal && !P.path) { const g = P.goal; P.goal = null; openStation(g); }
-      if (near && !paused) { talkBtn.hidden = false; talkBtn.innerHTML = `💬 ${esc(near.npc.name)} <kbd>E</kbd>`; } else talkBtn.hidden = true;
-      const nx = nextStation();
-      nextEl.innerHTML = nx ? `${nx.optional ? "⭐ " : ""}Далі: <b>${esc(nx.npc.name)}</b> · ${esc(nx.roomName)}` : "Урок пройдено!";
-      if (st && Math.random() < dt) { st.x = Math.round(P.x); st.y = Math.round(P.y); saveSt(); }
-    }
-    talkBtn.onclick = () => { if (near) openStation(near); };
-
-    /* -------- кадр */
-    let W = 0, H = 0, DPR = 1;
-    function resize() { DPR = Math.min(2, devicePixelRatio || 1); W = innerWidth; H = innerHeight; cv.width = W * DPR; cv.height = H * DPR; cv.style.width = W + "px"; cv.style.height = H + "px"; }
-    addEventListener("resize", resize); resize();
-    const tileFloor = (b, a, c, s = 40) => { ctx.fillStyle = a; ctx.fillRect(b.x, b.y, b.w, b.h); ctx.fillStyle = c; for (let y = b.y; y < b.y + b.h; y += s) for (let x = b.x + (((y - b.y) / s) % 2 ? s : 0); x < b.x + b.w; x += s * 2) ctx.fillRect(x, y, Math.min(s, b.x + b.w - x), Math.min(s, b.y + b.h - y)); };
-    let T0 = performance.now(), tt = 0;
-    function frame(now) {
-      const dt = Math.min(0.05, (now - T0) / 1000); T0 = now; tt += dt;
-      if (!paused) update(dt);
-      const z = clamp(Math.min(W / 1000, H / 720), 0.55, 1.2);
-      cam.z = z; cam.x += (P.x - cam.x) * Math.min(1, dt * 6); cam.y += (P.y - cam.y) * Math.min(1, dt * 6);
-      const hw = W / 2 / z, hh = H / 2 / z;
-      cam.x = WW * z > W ? clamp(cam.x, hw, WW - hw) : WW / 2; cam.y = WH * z > H ? clamp(cam.y, hh, WH - hh) : WH / 2;
-      ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.fillStyle = "#1e293b"; ctx.fillRect(0, 0, W, H);
-      ctx.setTransform(DPR * z, 0, 0, DPR * z, DPR * (W / 2 - cam.x * z), DPR * (H / 2 - cam.y * z));
-      tileFloor(rect(30, COR[0], WW - 60, COR[1] - COR[0]), "#e2e8f0", "#d8dee8", 40);
-      for (const { room, d } of deco) tileFloor(room.rr, d.floor[0], d.floor[1], 32);
-      ctx.fillStyle = "rgba(79,70,229,.12)"; ctx.fillRect(40, 528, WW - 80, 44);
-      label(ctx, "СТАРТ →", 344, 550, 12, "#64748b", "right");
-      for (const { room } of deco) label(ctx, room.name, doorX(room.rr), room.row ? COR[1] - 20 : COR[0] + 20, 14, "#334155");
-      for (const { d } of deco) d.draw(ctx, tt);
-      ctx.fillStyle = "#475569"; for (const w of WALLS) ctx.fillRect(w.x, w.y, w.w, w.h);
-      if (marker) { marker.t += dt; ctx.strokeStyle = `rgba(79,70,229,${Math.max(0, 1 - marker.t)})`; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(marker.x, marker.y, 8 + marker.t * 14, 0, 7); ctx.stroke(); if (marker.t > 1) marker = null; }
-      const nx = st && nextStation();
-      if (nx && !paused && Math.hypot(nx.x - P.x, nx.y - P.y) > TALK_R + 30) {
-        const a = Math.atan2(nx.y - P.y, nx.x - P.x); ctx.save(); ctx.translate(P.x + Math.cos(a) * 34, P.y + Math.sin(a) * 34); ctx.rotate(a);
-        ctx.fillStyle = nx.optional ? "#eab308" : "#4f46e5"; ctx.globalAlpha = 0.75 + Math.sin(tt * 5) * 0.2; ctx.beginPath(); ctx.moveTo(10, 0); ctx.lineTo(-6, -8); ctx.lineTo(-2, 0); ctx.lineTo(-6, 8); ctx.fill(); ctx.restore();
-      }
-      const people = stations.map((s) => ({ y: s.y, f: () => drawNpc(s) })).concat([{ y: P.y, f: () => drawPerson(ctx, P.x, P.y, "#2563eb", { walk: P.moving, t: tt, dir: P.dir, hat: "short", hair: "#1f2937" }) }]);
-      people.sort((a, b) => a.y - b.y).forEach((p) => p.f());
-      requestAnimationFrame(frame);
-    }
-    function drawNpc(s) {
-      drawPerson(ctx, s.x, s.y, s.npc.look, { hat: s.npc.hat, glasses: s.npc.glasses, t: tt, dir: Math.sign(P.x - s.x) * 0.6 });
-      ctx.font = "600 11px Rubik, system-ui, sans-serif"; const w = ctx.measureText(s.npc.name).width + 12;
-      rrect(ctx, s.x - w / 2, s.y + 20, w, 16, 8); ctx.fillStyle = "rgba(255,255,255,.88)"; ctx.fill();
-      label(ctx, s.npc.name, s.x, s.y + 28.5, 11, "#1f2937");
-      const done = isDone(s), open = available(s), by = s.y - 44 + (!done && open ? Math.sin(tt * 4 + s.i) * 3 : 0);
-      ctx.beginPath(); ctx.arc(s.x, by, 11, 0, 7);
-      ctx.fillStyle = done ? "#16a34a" : !open ? "#cbd5e1" : s.optional ? "#eab308" : "#facc15"; ctx.fill();
-      ctx.strokeStyle = "rgba(0,0,0,.25)"; ctx.lineWidth = 1.5; ctx.stroke();
-      label(ctx, done ? "✓" : !open ? "…" : s.optional ? "★" : "!", s.x, by + (open || done ? 1 : -3), 14, done ? "#fff" : open ? "#422006" : "#64748b");
-    }
-    requestAnimationFrame(frame);
+    // секундомір: час іде лише між стартом і фіналом (для таблиці лідерів)
+    setInterval(() => { if (st && !st.finished) $("#timer").textContent = fmtTime((Date.now() - st.start) / 1000); }, 500);
 
     /* -------- вихід із вкладки */
     document.addEventListener("visibilitychange", () => {
-      if (document.hidden && st && !st.finished && $("#start").hidden) { st.viol++; saveSt(); toast("Виходити з уроку не можна — це фіксується.", 3500); }
+      if (document.hidden && st && !st.finished && $("#start").hidden) { st.viol++; saveSt(); toast("Виходити з гри не можна — це фіксується.", 3500); }
     });
 
     /* ============================================================ РОЗМОВА: КРОКИ СТАНЦІЇ */
     const dlg = $("#dlg"), dBody = $("#dBody");
+    function setPaused(p) { paused = p; world.pause && world.pause(p); if (p) $("#talk").hidden = true; else { const s = nearSt; nearSt = null; core.near(s); } }
     function openStation(s) {
       if (openSt || !st) return;
-      if (!available(s)) { lockedToast(s); return; }
-      openSt = s; paused = true; keys.clear(); P.path = null; talkBtn.hidden = true; $("#toast").hidden = true;
-      $("#dWho").textContent = s.npc.name; $("#dWhere").textContent = (s.topic || "") + " · " + s.roomName;
+      if (!available(s)) { core.lockedToast(s); return; }
+      openSt = s; setPaused(true); $("#toast").hidden = true;
+      $("#dWho").textContent = s.npc.name; $("#dWhere").textContent = (s.topic || "") + (s.place ? " · " + s.place : "");
       $("#dAva").style.background = s.npc.look; $("#dAva").textContent = s.npc.name.split(" ").pop()[0];
       dlg.hidden = false;
       if (isDone(s)) {
@@ -459,7 +190,7 @@
       } else step(s, 0);
     }
     function closeDlg() {
-      dlg.hidden = true; openSt = null; paused = false;
+      dlg.hidden = true; openSt = null; setPaused(false);
       const fin = stations.find((x) => x.final);
       if (fin && isDone(fin) && !st.finished) finishAll();
     }
@@ -469,18 +200,19 @@
       return [...f.children];
     }
     function step(s, k) {
-      dBody.innerHTML = ""; dBody.scrollTop = 0; $("#dlg").scrollTop = 0;
+      dBody.innerHTML = ""; dlg.scrollTop = 0;
       const steps = s.steps;
       if (k >= steps.length) {
-        const was = isDone(s); st.done[s.i] = 1; saveSt(); renderHud(); closeDlg();
-        if (!was) toast(s.final ? "Урок пройдено!" : `✓ ${s.topic || s.npc.name} — пройдено`, 2500);
+        const was = isDone(s); st.done[s.i] = 1;
+        if (!was) core.addCoins(s.optional ? 15 : 10);
+        saveSt(); renderHud(); closeDlg();
+        if (!was) { toast(s.final ? "Урок пройдено!" : `✓ ${s.topic || s.npc.name} — пройдено`, 2500); world.celebrate && world.celebrate(s); }
         return;
       }
       $("#dStep").textContent = `${k + 1} / ${steps.length}`;
       const p = steps[k], next = () => step(s, k + 1);
       STEP[p.t](s, p, `${s.i}:${k}`, next);
     }
-    // **жирне** у репліках
     const rich = (t) => esc(t).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>").replace(/\n/g, "<br>");
     const qp = (t) => el("p", "q", rich(t));
     function table(rows) {
@@ -490,8 +222,7 @@
     }
     const noteLabel = (p, s) => p.term ? p.term : p.table ? `${s.topic} — таблиця` : (p.rule || "").split("\n")[0].slice(0, 60);
     function addNote(s, p, k) {
-      const id = `${s.i}:${k}`;
-      if (!st.notes.some((n) => n.id === id)) { st.notes.push({ id, label: noteLabel(p, s), term: p.term, def: p.def, rule: p.rule, table: p.table }); saveSt(); renderHud(); }
+      if (!st.notes.some((n) => n.id === k)) { st.notes.push({ id: k, label: noteLabel(p, s) }); saveSt(); renderHud(); }
       $("#bookBtn").classList.add("pulse"); setTimeout(() => $("#bookBtn").classList.remove("pulse"), 1600);
     }
     // кнопка «Я записав(ла)» оживає через стільки секунд, скільки треба, щоб записати
@@ -501,6 +232,11 @@
       if (isDone(s)) { b.disabled = false; b.textContent = "Далі →"; return; }
       let left = sec;
       const tm = setInterval(() => { left--; if (!document.body.contains(b)) return clearInterval(tm); if (left <= 0) { clearInterval(tm); b.disabled = false; b.textContent = "✍️ Я записав(ла)"; } else b.textContent = `✍️ Я записав(ла) · ${left}`; }, 1000);
+    }
+    function showResult(ok, x, next) {
+      const fb = el("div", "fb " + (ok ? "ok" : "bad"), (ok ? "✅ Правильно!" : "❌ Не зовсім.") + (x ? ` <span>${x}</span>` : ""));
+      dBody.append(fb); footer([["Далі →", "pri", next]]);
+      fb.scrollIntoView({ block: "nearest", behavior: "smooth" });
     }
     const STEP = {
       say(s, p, k, next) {
@@ -517,7 +253,8 @@
       demo(s, p, k, next) {
         if (p.text) dBody.append(el("p", "say", rich(p.text)));
         const [b] = footer([["Далі →", "pri", next, true]]);
-        DEMO[p.kind](dBody, () => { b.disabled = false; });
+        const D = DEMO[p.kind] || (world.demos && world.demos[p.kind]);
+        D(dBody, () => { b.disabled = false; }, p);
         if (isDone(s)) b.disabled = false;
       },
       check(s, p, k, next) {
@@ -525,19 +262,31 @@
           dBody.append(el("p", "say", "Цю перевірку ти вже пройшов(ла) — вона зарахована."));
           footer([["Далі →", "pri", next]]); return;
         }
-        dBody.append(el("div", "chk", "🔎 Перевірка — текст сховано, користуйся своїм зошитом"));
-        TASK[p.type]({ task: p, sname: st.name }, dBody, (ok, x) => {
-          if (!isDone(s)) { st.checks[k] = ok ? 1 : 0; saveSt(); }
-          const fb = el("div", "fb " + (ok ? "ok" : "bad"), (ok ? "✅ Правильно!" : "❌ Не зовсім.") + (x ? ` <span>${x}</span>` : ""));
-          dBody.append(fb); footer([["Далі →", "pri", next]]);
-          fb.scrollIntoView({ block: "nearest", behavior: "smooth" });
-        });
+        const record = (ok) => { if (!isDone(s)) { st.checks[k] = ok ? 1 : 0; if (ok) core.addCoins(5); saveSt(); } };
+        if (TASK[p.type]) {
+          dBody.append(el("div", "chk", "🔎 Перевірка — текст сховано, користуйся своїм зошитом"));
+          TASK[p.type]({ task: p, sname: st.name }, dBody, (ok, x) => { record(ok); showResult(ok, x, next); });
+          return;
+        }
+        // міні-гра світу: діалог ховається, світ грає, потім повертаємось із результатом
+        dBody.append(el("div", "chk", "🎮 Перевірка-гра"), el("p", "say", rich(p.intro || "Готовий(а)? Поїхали!")));
+        let launched = false;
+        footer([["▶ Грати", "pri", () => {
+          if (launched) return; launched = true; // подвійне натискання не запускає дві гри
+          dlg.hidden = true; document.body.classList.add("ingame");
+          world.challenge(p, R, (ok, x, extra) => {
+            document.body.classList.remove("ingame");
+            record(ok); dlg.hidden = false; dBody.innerHTML = "";
+            if (extra) dBody.append(el("p", "say", rich(extra)));
+            showResult(ok, x, next);
+          });
+        }]]);
       },
       gate(s, p, k, next) {
         const left = stations.filter((x) => x.optional && !isDone(x));
         if (!left.length) return next();
-        dBody.append(el("p", "say", rich(`Вітаю, стажере! Можна складати перевірку вже зараз — це до **9 балів**. А хто хоче **12** — спершу зазирни в ⭐ Музей анімації: там ще ${left.length} ${left.length === 1 ? "станція" : "станції"}. Після перевірки повернутися вже не вийде.`)));
-        footer([["⭐ Іду в музей", "", closeDlg], ["Складати зараз", "pri", next]]);
+        dBody.append(el("p", "say", rich(`Можна складати фінальну перевірку вже зараз — це до **9 балів**. А хто хоче **12** — спершу ⭐ ${left.length === 1 ? "станція" : "станції"}: ${left.map((x) => x.npc.name).join(", ")}. Після перевірки повернутися вже не вийде.`)));
+        footer([["⭐ Спершу ⭐-станції", "", closeDlg], ["Складати зараз", "pri", next]]);
       }
     };
     function noteBox(inner, tag) { const c = el("div", "note"); c.append(el("div", "tag", tag), inner); return c; }
@@ -823,38 +572,186 @@
       }
     };
 
+
+    /* ---------------- ще перевірки */
+    TASK.sort = (c, box, done) => {
+      const v = R.pick(c.task.v); box.append(qp(v.q));
+      box.append(el("p", "hint", "💡 Для кожного рядка натисни, куди він належить."));
+      const tbl = el("div", "sort"); box.append(tbl);
+      const pick = {}; const items = R.shuffle(v.items);
+      items.forEach(([t], k) => {
+        const row = el("div", "srow", `<span>${esc(t)}</span>`); const bs = el("div", "sbtns");
+        v.groups.forEach((g, gi) => { const b = el("button", "sb", esc(g)); b.onclick = () => { pick[k] = gi; bs.querySelectorAll(".sb").forEach((x, xi) => x.classList.toggle("sel", xi === gi)); ans.disabled = Object.keys(pick).length !== items.length; }; bs.append(b); });
+        row.append(bs); tbl.append(row);
+      });
+      const [ans] = footer([["Відповісти", "pri", () => {
+        let ok = true;
+        tbl.querySelectorAll(".srow").forEach((row, k) => { const good = pick[k] === items[k][1]; if (!good) ok = false; row.classList.add(good ? "right" : "wrong"); row.querySelectorAll(".sb").forEach((b) => { b.disabled = true; }); });
+        ans.disabled = true; done(ok, esc(v.x || ""));
+      }, true]]);
+    };
+
+    /* ---------------- ще демонстрації (5–7 класи, уроки 7–8) */
+    // 5-07: мережа з роутером — торкнись кожного пристрою
+    DEMO.net = (box, ready) => {
+      const devs = [["💻", "Комп'ютер", "дротове: кабелем до комунікаційного пристрою", 1, 50, 40], ["🖨️", "Принтер", "дротове: спільний мережевий принтер — друкують з усіх комп'ютерів", 1, 250, 40], ["📱", "Смартфон", "бездротове: радіосигнал Wi-Fi", 2, 285, 150], ["💻", "Ноутбук", "бездротове: Wi-Fi (кабель теж можна)", 2, 15, 150], ["📺", "«Розумний» телевізор", "бездротове: Wi-Fi", 2, 150, 205], ["🖱️", "Миша", "НЕ в мережі: її під'єднують до комп'ютера, сама даними в мережі не обмінюється", 0, 60, 230], ["🎧", "Навушники", "НЕ в мережі: їх під'єднують до телефона чи комп'ютера", 0, 245, 230]];
+      const W = 340, H = 292, svg = document.createElementNS(NS, "svg"); svg.setAttribute("viewBox", `0 0 ${W} ${H}`); svg.classList.add("netd");
+      const mk = (t, a, txt) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (txt != null) e.textContent = txt; svg.append(e); return e; };
+      mk("rect", { x: 0, y: 0, width: W, height: H, fill: "#f8fafc", rx: 12 });
+      const lines = mk("g", {});
+      const cx = 170, cy = 125;
+      mk("circle", { cx, cy, r: 30, fill: "#4f46e5" }); mk("text", { x: cx, y: cy + 6, "text-anchor": "middle", "font-size": 22 }, "📡");
+      mk("text", { x: cx, y: cy + 46, "text-anchor": "middle", "font-size": 11, "font-weight": 700, fill: "#312e81" }, "роутер");
+      mk("text", { x: cx, y: 18, "text-anchor": "middle", "font-size": 11, fill: "#64748b" }, "🌍 Інтернет ↑ через роутер");
+      mk("line", { x1: cx, y1: 24, x2: cx, y2: cy - 30, stroke: "#94a3b8", "stroke-width": 2, "stroke-dasharray": "2 3" });
+      const info = el("p", "say", "👆 Торкнись кожного пристрою."), seen = new Set();
+      devs.forEach(([e, n, how, kind, x, y], i) => {
+        const g = mk("g", { class: "dev", tabindex: 0, role: "button", "aria-label": n });
+        const c = document.createElementNS(NS, "circle"); Object.entries({ cx: x + 20, cy: y + 18, r: 22, fill: "#fff", stroke: "#cbd5e1", "stroke-width": 2 }).forEach(([k, v]) => c.setAttribute(k, v));
+        const t = document.createElementNS(NS, "text"); Object.entries({ x: x + 20, y: y + 26, "text-anchor": "middle", "font-size": 22 }).forEach(([k, v]) => t.setAttribute(k, v)); t.textContent = e;
+        g.append(c, t);
+        const pick = () => {
+          if (!seen.has(i)) {
+            seen.add(i);
+            if (kind) { const l = document.createElementNS(NS, "line"); Object.entries({ x1: x + 20, y1: y + 18, x2: cx, y2: cy, stroke: kind === 1 ? "#0f172a" : "#0ea5e9", "stroke-width": kind === 1 ? 3 : 2, "stroke-dasharray": kind === 1 ? "" : "4 4" }).forEach(([k, v]) => l.setAttribute(k, v)); lines.append(l); }
+            c.setAttribute("stroke", kind ? (kind === 1 ? "#0f172a" : "#0ea5e9") : "#ef4444");
+          }
+          info.innerHTML = `<b>${e} ${esc(n)}</b> — ${esc(how)}<br><small class="muted">Переглянуто ${seen.size} з ${devs.length} · суцільна лінія — кабель, пунктир — Wi-Fi</small>`;
+          if (seen.size === devs.length) ready();
+        };
+        g.addEventListener("click", pick); g.addEventListener("keydown", (ev) => { if (ev.key === "Enter") pick(); });
+      });
+      box.append(svg, info);
+    };
+    // 5-08: невдалий і вдалий запит у пошуковій системі
+    DEMO.search = (box, ready) => {
+      const qs = [
+        ["підкажіть будь ласка яка в нас гора найвища і скільки там метрів", false, ["Форум: «а хто знає, яка гора найвища?» (без відповіді)", "Як правильно писати «будь ласка»", "Топ-10 найвищих гір світу"]],
+        ["висота Говерли", true, ["Говерла — найвища гора України, 2061 м", "Говерла — Вікіпедія", "Маршрути на Говерлу — офіційний сайт парку"]],
+        ["Шевченко", false, ["Андрій Шевченко — футболіст", "Шевченківський район", "Вулиця Шевченка — карта"]],
+        ["Тарас Шевченко дата народження", true, ["Тарас Шевченко народився 9 березня 1814 року", "Біографія Т. Г. Шевченка", "Музей Тараса Шевченка"]]
+      ];
+      const tried = new Set(), wrap = el("div", "srch");
+      const field = el("div", "sfield", "🔎 <span>натисни запит нижче</span>"), res = el("ol", "sres"), opts = el("div", "seg");
+      qs.forEach(([q, good, r], i) => { const b = el("button", "sb", esc(q.length > 34 ? q.slice(0, 32) + "…" : q)); b.onclick = () => {
+        tried.add(good); opts.querySelectorAll(".sb").forEach((x) => x.classList.toggle("sel", x === b));
+        field.innerHTML = `🔎 <span>${esc(q)}</span>`;
+        res.innerHTML = r.map((t, k) => `<li class="${good && k === 0 ? "hit" : ""}">${esc(t)}</li>`).join("") + `<p class="hint">${good ? "✅ Ключові слова — і потрібне вже першим!" : "❌ Зайві слова або занадто загально — потрібного немає."}</p>`;
+        if (tried.size === 2) ready();
+      }; opts.append(b); });
+      wrap.append(field, res); box.append(wrap, opts);
+    };
+    // 6-07: вкладка «Вставлення» — зображення, відео, аудіо; відео з ПК чи онлайн (без інтернету)
+    DEMO.media = (box, ready) => {
+      const rib = el("div", "rib"), slide = el("div", "slide6"), info = el("p", "say", "👆 Встав на слайд зображення, відео й аудіо — кнопки на вкладці «Вставлення».");
+      const items = { img: ["🖼️ Зображення", "Фото.jpg", "JPG, PNG, GIF, BMP"], vid: ["🎬 Відео", "Дослід.mp4", "MP4, WMV, AVI"], aud: ["🔊 Аудіо", "Пісня.mp3", "MP3, WAV, WMA"] };
+      const got = new Set();
+      rib.append(el("span", "rtab", "Вставлення"));
+      for (const [k, [lab, file, fmt]] of Object.entries(items)) {
+        const b = el("button", "sb", lab); b.onclick = () => {
+          if (!got.has(k)) { got.add(k); slide.append(el("div", "obj6 " + k, `<b>${k === "img" ? "🖼️" : k === "vid" ? "▶" : "🔊"}</b><small>${esc(file)}</small>`)); }
+          info.innerHTML = `<b>${esc(lab)}</b> — формати: ${esc(fmt)}. ${k === "aud" ? "На слайді з'являється значок гучномовця." : k === "vid" ? "На слайді — віконце з першим кадром і кнопками." : ""}`;
+          if (got.size === 3) ready();
+        }; rib.append(b);
+      }
+      box.append(rib, slide, info);
+    };
+    DEMO.online = (box, ready) => {
+      let net = true; const flips = new Set();
+      const sw = el("button", "btn", "📶 Інтернет: є"), row = el("div", "vrow");
+      const a = el("div", "vid6", "<b>Відео з комп'ютера</b><div class='scr'>▶ грає</div><small>усередині файлу презентації</small>");
+      const b = el("div", "vid6", "<b>Онлайнове відео</b><div class='scr'>▶ грає</div><small>на слайді — лише посилання</small>");
+      row.append(a, b);
+      const info = el("p", "hint", "Вимкни й увімкни інтернет — подивись, що станеться з кожним відео.");
+      sw.onclick = () => { net = !net; flips.add(net); sw.textContent = net ? "📶 Інтернет: є" : "🚫 Інтернет: немає"; b.querySelector(".scr").textContent = net ? "▶ грає" : "⚠ Немає з'єднання"; b.classList.toggle("off", !net); if (flips.size === 2) ready(); };
+      box.append(sw, row, info);
+    };
+    // 6-08: показ і режим доповідача — клавіші F5, Shift + F5, Esc, →, ←
+    DEMO.show = (box, ready) => {
+      const n = 5; let cur = 2, mode = "edit"; const used = new Set();
+      const scr = el("div", "show6"), mon = el("div", "mon6"), keys = el("div", "seg"), info = el("p", "hint", "");
+      const draw = () => {
+        scr.innerHTML = mode === "edit" ? `<div class="ed">✏️ Режим редагування · виділено слайд ${cur}</div>` : `<div class="sl">Слайд ${cur}</div>`;
+        mon.innerHTML = mode === "presenter" ? `<b>Монітор доповідача</b><div class="sl small">Слайд ${cur}</div><div class="nt">📝 Нотатки: «Розповісти про слайд ${cur}»</div><div class="nx">Далі: слайд ${Math.min(n, cur + 1)}</div>` : `<b>Монітор доповідача</b><div class="nt muted">${mode === "show" ? "той самий слайд, що й на проєкторі" : "—"}</div>`;
+        info.textContent = { edit: "Показ не запущено.", show: "Іде показ: клас бачить на проєкторі лише слайд.", presenter: "Режим доповідача: клас бачить слайд, а ти — ще й нотатки й наступний слайд." }[mode];
+      };
+      const K = [["F5", () => { mode = "show"; cur = 1; }], ["Shift + F5", () => { mode = "show"; }], ["Alt + F5", () => { mode = "presenter"; cur = 1; }], ["→", () => { if (mode !== "edit") cur = Math.min(n, cur + 1); }], ["←", () => { if (mode !== "edit") cur = Math.max(1, cur - 1); }], ["Esc", () => { mode = "edit"; }]];
+      K.forEach(([k, f]) => { const b = el("button", "sb", `<kbd>${k}</kbd>`); b.onclick = () => { f(); used.add(k); draw(); if (["F5", "Shift + F5", "Esc", "Alt + F5"].every((x) => used.has(x))) ready(); }; keys.append(b); });
+      const row = el("div", "vrow"); const pj = el("div", "pj6"); pj.append(el("b", "", "📽️ Проєктор (бачить клас)"), scr); row.append(pj, mon);
+      box.append(row, keys, info, el("p", "hint", "Спробуй F5, Shift + F5, Alt + F5 і Esc.")); draw();
+    };
+    // 7-08: RGB-повзунки й HEX-код
+    DEMO.rgb = (box, ready) => {
+      const c = [255, 136, 0], moved = new Set();
+      const sw = el("div", "rgbsw"), code = el("div", "rgbcode"), wrap = el("div", "rgbw");
+      const hx = (v) => v.toString(16).padStart(2, "0").toUpperCase();
+      const draw = () => { const h = "#" + c.map(hx).join(""); sw.style.background = h; code.innerHTML = `<b>${h}</b> · RGB ${c.join(", ")}`; };
+      ["R", "G", "B"].forEach((n, i) => {
+        const lab = el("label", "rgbl", `<span style="color:${["#dc2626", "#16a34a", "#2563eb"][i]}">${n}</span>`); const r = el("input"); r.type = "range"; r.min = 0; r.max = 255; r.value = c[i];
+        const out = el("output", "", c[i]); r.oninput = () => { c[i] = +r.value; out.textContent = r.value; moved.add(n); draw(); if (moved.size === 3) ready(); };
+        lab.append(r, out); wrap.append(lab);
+      });
+      box.append(sw, code, wrap, el("p", "hint", "Порухай усі три повзунки. Спробуй отримати жовтий: R = 255, G = 255, B = 0.")); draw();
+    };
+    // 7-08: статичне й динамічне тло
+    DEMO.bg = (box, ready) => {
+      const cv = el("canvas", "demo"); cv.width = 520; cv.height = 220; box.append(cv);
+      const g = cv.getContext("2d"); let off = 3, dir = 1, x = 0; const tried = new Set();
+      const ctl = el("div", "seg");
+      [["◀ ліворуч", () => { dir = -1; tried.add("dir"); }], ["праворуч ▶", () => { dir = 1; tried.add("dir"); }], ["зміщення 1", () => { off = 1; tried.add("o1"); }], ["зміщення 5", () => { off = 5; tried.add("o5"); }], ["зміщення 10", () => { off = 10; tried.add("o10"); }]].forEach(([t, f]) => { const b = el("button", "sb", t); b.onclick = () => { f(); if (tried.size >= 3) ready(); }; ctl.append(b); });
+      box.append(ctl, el("p", "hint", "Будинок і сніг — на статичному тлі (стоять), хмари — на динамічному (прокручуються). Зміни напрям і зміщення."));
+      (function loop() {
+        if (!document.body.contains(cv)) return;
+        x = (x + off * dir * 0.5 + 520) % 520;
+        g.fillStyle = "#99ccff"; g.fillRect(0, 0, 520, 220);
+        for (let k = -1; k < 3; k++) { const cx = (x + k * 260) % 780 - 60; g.fillStyle = "rgba(255,255,255,.75)"; g.beginPath(); g.ellipse(cx, 50, 46, 18, 0, 0, 7); g.ellipse(cx + 30, 40, 30, 16, 0, 0, 7); g.fill(); }
+        g.fillStyle = "#ffffff"; g.fillRect(0, 170, 520, 50);
+        g.fillStyle = "#993300"; g.fillRect(320, 110, 90, 60); g.fillStyle = "#CC0000"; g.beginPath(); g.moveTo(310, 112); g.lineTo(365, 70); g.lineTo(420, 112); g.fill();
+        g.font = "600 12px Rubik, sans-serif"; g.fillStyle = "#1e3a8a"; g.fillText(`динамічне тло: ${dir > 0 ? "праворуч" : "ліворуч"}, зміщення ${off}`, 12, 20);
+        requestAnimationFrame(loop);
+      })();
+    };
+
     /* ============================================================ ЗОШИТ */
     const book = $("#book");
     function openBook() {
       if (!st) return;
       const body = $("#bookBody"); body.innerHTML = "";
-      body.append(el("p", "say", "Тут — лише <b>назви</b> того, що ти мав(ла) записати. Сам текст — у твоєму паперовому зошиті. Наприкінці уроку побачиш усе повністю й зможеш звірити."));
+      body.append(el("p", "say", "Тут — лише <b>назви</b> того, що ти мав(ла) записати. Сам текст — у твоєму паперовому зошиті. Наприкінці гри побачиш усе повністю й зможеш звірити."));
       if (!st.notes.length) body.append(el("p", "hint", "Поки порожньо."));
       const ul = el("ul", "blist"); st.notes.forEach((n) => ul.append(el("li", "", esc(n.label)))); body.append(ul);
-      book.hidden = false; paused = true;
+      book.hidden = false; setPaused(true);
     }
-    function closeBook() { if (book.hidden) return; book.hidden = true; if (!openSt && $("#res").hidden && st && !st.finished) paused = false; }
+    function closeBook() { if (book.hidden) return; book.hidden = true; if (!openSt && $("#res").hidden && st && !st.finished) setPaused(false); }
     $("#bookBtn").onclick = openBook; $("#bookClose").onclick = closeBook;
     book.addEventListener("click", (e) => { if (e.target === book) closeBook(); });
 
     /* ============================================================ ФІНАЛ */
     function finishAll() {
-      st.finished = true; paused = true; hud.hidden = true;
+      st.finished = true; setPaused(true); $("#hud").hidden = true;
       const sc = score(), total = CHECKS.length, g12 = Math.max(1, Math.round(sc / total * 12));
       const sec = Math.round((Date.now() - st.start) / 1000);
       const ak = `${KEY}:att:${st.cls}|${personKey(st.name)}`, att = store.get(ak, 0) + 1; store.set(ak, att);
-      saveSt();
+      st.result = { sc, total, sec, att }; saveSt();
       const wrong = CHECKS.map((k, i) => (st.checks[k] ? 0 : i + 1)).filter(Boolean).join(", ");
       const skipped = stations.filter((s) => s.optional && !isDone(s)).length;
-      queueResult({ ts: new Date().toISOString(), testId: Q.id, test: Q.title, kind: "quest", cls: st.cls, name: st.name, attempt: att, score: sc, total, grade12: g12, violations: st.viol, durationSec: sec, wrong, note: "🕹️ урок-квест" + (skipped ? `; ⭐ пропущено: ${skipped}` : "") + (st.viol ? `; виходів: ${st.viol}` : "") });
-      $("#rGrade").textContent = g12; $("#rScore").textContent = `${sc} з ${total}`; $("#rTime").textContent = `${Math.floor(sec / 60)} хв ${sec % 60} с`;
-      $("#rTitle").textContent = g12 >= 10 ? "Стажування пройдено блискуче!" : g12 >= 7 ? "Стажування пройдено!" : "Стажування пройдено — але варто повторити";
+      queueResult({ ts: new Date().toISOString(), testId: Q.id, test: Q.title, kind: "quest", cls: st.cls, name: st.name, attempt: att, score: sc, total, grade12: g12, violations: st.viol, durationSec: sec, wrong, note: `🕹️ конспект-гра · 🪙 ${st.coins || 0}` + (skipped ? `; ⭐ пропущено: ${skipped}` : "") + (st.viol ? `; виходів: ${st.viol}` : "") });
+      $("#rGrade").textContent = g12; $("#rScore").textContent = `${sc} з ${total}`; $("#rTime").textContent = fmtTime(sec);
+      $("#rTitle").textContent = g12 >= 10 ? "Пройдено блискуче!" : g12 >= 7 ? "Пройдено!" : "Пройдено — але варто повторити";
+      $("#rBonusHint").innerHTML = att === 1 && sc === total ? "🎯 Усе правильно з першої спроби — ти в боротьбі за <b>🏅 +1 бал</b>: його отримують троє найшвидших у класі з таким самим результатом." : att > 1 ? "Це не перша спроба — у таблиці лідерів рахується лише перша." : "🏅 +1 бал отримують троє найшвидших у класі, хто з першої спроби відповів правильно на <b>все</b>, включно з ⭐.";
       const ul = $("#rList"); ul.innerHTML = "";
       stations.forEach((s) => { const ks = s.steps.map((p, k) => p.t === "check" ? `${s.i}:${k}` : null).filter(Boolean); if (!ks.length) return; const got = ks.filter((k) => st.checks[k]).length; ul.append(el("li", got === ks.length ? "ok" : "bad", `${esc(s.topic)} <small>${got}/${ks.length}</small>`)); });
       const nb = $("#rNotes"); nb.innerHTML = "";
-      stations.forEach((s) => s.steps.forEach((p, k) => { if (p.t === "write" || (p.t === "say" && p.write)) { if (!s.optional || isDone(s)) nb.append(p.t === "write" ? noteCard(p) : noteBox(table(p.table), `✍️ ${s.topic} — таблиця`)); } }));
+      stations.forEach((s) => s.steps.forEach((p) => { if (p.t === "write" || (p.t === "say" && p.write)) { if (!s.optional || isDone(s)) nb.append(p.t === "write" ? noteCard(p) : noteBox(table(p.table), `✍️ ${s.topic} — таблиця`)); } }));
       $("#toast").hidden = true; $("#res").hidden = false;
+      world.finish && world.finish();
+      // таблиця лідерів: даємо таблиці кілька секунд записати наш рядок
+      const me = { name: st.name, score: sc, total, min: sec / 60, me: true };
+      $("#rBoard").innerHTML = "<p class='hint'>Завантажую таблицю лідерів…</p>";
+      flush().then(() => setTimeout(() => showBoard($("#rBoard"), st.cls, 10, att === 1 ? me : null), 2500));
     }
+    $("#again").onclick = () => { store.set(KEY + ":run", null); location.reload(); };
+
     // опитування бети: окремий рядок у таблиці (аркуш beta-<id>), оцінка 2 / 1 / 0
     let pollV = null;
     document.querySelectorAll("#poll .opt").forEach((b) => { b.onclick = () => { pollV = +b.dataset.v; document.querySelectorAll("#poll .opt").forEach((x) => x.classList.toggle("sel", x === b)); $("#pollSend").disabled = false; }; });
@@ -865,29 +762,52 @@
       document.querySelectorAll("#poll .opt, #pollTxt, #pollSend").forEach((x) => { x.disabled = true; });
       $("#pollOk").hidden = false;
     };
-    $("#again").onclick = () => { store.set(KEY + ":run", null); location.reload(); };
+
+    /* ---------------- таблиця лідерів класу (Code.gs, action "board") */
+    async function showBoard(box, cls, top, me) {
+      if (!box || !cls) { if (box) box.innerHTML = ""; return; }
+      if (!CFG.QUEST_BOARD) { box.innerHTML = me ? `<p class="hint">🏆 Таблиця лідерів класу скоро запрацює — твій результат уже збережено й потрапить туди.</p>` : ""; return; }
+      let rows = null;
+      try {
+        const r = await fetch(CFG.SHEETS_URL, { method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ action: "board", test: Q.id, cls }) });
+        const d = await r.json(); if (d && d.ok) rows = d.rows;
+      } catch (e) { rows = null; }
+      if (!rows) { box.innerHTML = me ? `<p class="hint">Таблиця лідерів поки недоступна — твій результат збережено, він з'явиться там пізніше.</p>` : ""; return; }
+      if (me && !rows.some((r) => personKey(r.name) === personKey(me.name))) { rows.push(me); rows.sort((a, b) => b.score - a.score || a.min - b.min); }
+      if (!rows.length) { box.innerHTML = `<p class="hint">🏆 У ${esc(cls)} ще ніхто не пройшов цю гру — будь першим(ою)!</p>`; return; }
+      const mine = me ? rows.findIndex((r) => personKey(r.name) === personKey(me.name)) : -1;
+      const list = rows.slice(0, top).map((r, i) => ({ r, i }));
+      if (mine >= top) list.push({ r: rows[mine], i: mine });
+      box.innerHTML = `<h2>🏆 Лідери ${esc(cls)}</h2>` + `<ol class="lead">${list.map(({ r, i }) => `<li class="${i === mine ? "me" : ""}${i >= top ? " gap" : ""}"><span class="pl">${i < 3 ? ["🥇", "🥈", "🥉"][i] : i + 1}</span><span class="nm">${esc(shortName(r.name))}${r.bonus ? ' <span class="bonus">🏅 +1</span>' : ""}</span><span class="sc">${r.score}/${r.total}</span><span class="tm">${fmtTime(r.min * 60)}</span></li>`).join("")}</ol>` + `<p class="hint">Рахується перша спроба: спершу бали, потім час. 🏅 +1 бал — троє найшвидших із результатом «усе правильно».</p>`;
+    }
 
     function queueResult(row) { const box = store.get("qz:outbox", []); box.push(row); store.set("qz:outbox", box); flush(); }
-    async function flush() {
-      if (!CFG.SHEETS_URL) return;
-      let box = store.get("qz:outbox", []);
-      while (box.length) {
-        try { await fetch(CFG.SHEETS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(box[0]) }); box.shift(); store.set("qz:outbox", box); }
-        catch (e) { break; }
-      }
+    let flushing = null;
+    function flush() {
+      if (!CFG.SHEETS_URL) return Promise.resolve();
+      if (flushing) return flushing;
+      flushing = (async () => {
+        let box = store.get("qz:outbox", []);
+        while (box.length) {
+          try { await fetch(CFG.SHEETS_URL, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(box[0]) }); box.shift(); store.set("qz:outbox", box); }
+          catch (e) { break; }
+        }
+        flushing = null;
+      })();
+      return flushing;
     }
-    window.QUEST.debug = { findPath, goTo, stations, P, st: () => st, openStation, finishAll, available };
+    window.QUEST.debug = { core, stations, st: () => st, openStation, finishAll, available, world };
   }
-
-  /* ---------------------------------------------------------- сповіщення */
-  let toastT = 0;
-  function toast(t, ms = 2600) { const e = $("#toast"); e.textContent = t; e.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => { e.hidden = true; }, ms); }
 
   /* ---------------------------------------------------------- запуск */
   const id = (new URLSearchParams(location.search).get("q") || "7-07").replace(/[^\w-]/g, "");
-  const s = document.createElement("script");
-  s.src = `quests/${id}.js?v=${Date.now() / 6e5 | 0}`;
-  s.onload = () => LIST.length ? run(LIST[0]) : ($("#sTitle").textContent = "Квест не знайдено");
-  s.onerror = () => { $("#sTitle").textContent = "Квест не знайдено"; };
-  document.head.append(s);
+  const fail = (m) => { $("#sTitle").textContent = m; };
+  loadScript(`quests/${id}.js?v=${VER}`).then(async () => {
+    if (!LIST.length) return fail("Гру не знайдено");
+    const Q = LIST[0], wname = Q.world || "studio";
+    if (["runner", "blocky", "range"].includes(wname) && !window.THREE) await loadScript("https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js");
+    if (["studio", "arena"].includes(wname)) await loadScript(`assets/worlds/lib2d.js?v=${VER}`);
+    await loadScript(`assets/worlds/${wname}.js?v=${VER}`);
+    run(Q, window.QWORLDS[wname]);
+  }).catch(() => fail("Не вдалося завантажити гру — перевір інтернет і онови сторінку"));
 })();

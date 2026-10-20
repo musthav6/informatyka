@@ -25,6 +25,7 @@ const HEADERS = COLS.map((c) => c[0]);
 function doPost(e) {
   const d = JSON.parse(e.postData.contents);
   if (d.action === "results") return results_(d);
+  if (d.action === "board") return board_(d);
 
   const lock = LockService.getScriptLock();
   lock.waitLock(20000);
@@ -64,6 +65,32 @@ function results_(d) {
     return o;
   });
   return json_({ ok: true, rows: rows, since: since ? new Date(since).toISOString() : "" });
+}
+
+/* Таблиця лідерів конспект-гри (без пароля — бачать учні класу).
+   Лише перша спроба кожного учня; порядок — бали ↓, потім час ↑.
+   🏅 bonus — троє найшвидших серед тих, хто з першої спроби набрав усе (score = total).
+   Ім'я віддаємо як є, скорочує сайт («Софія К.»). */
+function board_(d) {
+  const test = String(d.test || ""), cls = String(d.cls || "");
+  if (!test || !cls) return json_({ ok: false, error: "args" });
+  const sh = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(test.slice(0, 90));
+  if (!sh || sh.getLastRow() < 2) return json_({ ok: true, rows: [] });
+  const data = sh.getRange(1, 1, sh.getLastRow(), sh.getLastColumn()).getValues();
+  const head = data[0].map(String), col = (h) => head.indexOf(h);
+  const iC = col("Клас"), iN = col("Учень"), iA = col("Спроба"), iS = col("Правильних"), iT = col("З"), iM = col("Тривалість, хв"), iTime = col("Час");
+  const seen = {}, rows = [];
+  data.slice(1).forEach((r) => {
+    if (String(r[iC]) !== cls || Number(r[iA]) !== 1) return;
+    const key = String(r[iN]).toLowerCase().replace(/[’ʼ`']/g, "'").split(/\s+/).filter(String).sort().join(" ");
+    if (!key || seen[key]) return; // однаковий рядок, надісланий двічі
+    seen[key] = 1;
+    const t = r[iTime] && typeof r[iTime].getTime === "function" ? r[iTime].getTime() : 0;
+    rows.push({ name: String(r[iN]), score: Number(r[iS]) || 0, total: Number(r[iT]) || 0, min: Number(r[iM]) || 0, t: t });
+  });
+  rows.sort((a, b) => b.score - a.score || a.min - b.min || a.t - b.t);
+  rows.filter((r) => r.total && r.score === r.total).slice(0, 3).forEach((r) => { r.bonus = true; });
+  return json_({ ok: true, rows: rows.slice(0, 40).map((r) => ({ name: r.name, score: r.score, total: r.total, min: r.min, bonus: !!r.bonus })) });
 }
 
 /* Дописати запис в аркуш, розклавши значення за назвами колонок цього аркуша */

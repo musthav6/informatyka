@@ -19,7 +19,8 @@
 [hidden]{display:none!important}
 html,body{margin:0;height:100%;overflow:hidden}
 body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
-#world{position:fixed;inset:0;display:block;touch-action:none;cursor:pointer}
+#stage{position:fixed;inset:0;overflow:hidden}
+#stage canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:pointer;width:100%;height:100%}
 button,input,select,textarea{font:inherit;color:inherit}
 h1,h2{font-family:var(--display);margin:0;text-wrap:balance}
 h1{font-size:clamp(22px,4.5vw,30px);line-height:1.15}
@@ -231,3 +232,88 @@ textarea{width:100%;resize:vertical;line-height:1.5}
 .pollb{display:flex;flex-direction:column;gap:6px}
 .betab{font-family:var(--body);font-size:11px;font-weight:700;text-transform:uppercase;background:var(--accent);color:#fff;border-radius:999px;padding:2px 8px;vertical-align:middle}
 .poll .btn{align-self:flex-start}
+
+/* секундомір, монети, таблиця лідерів */
+.hud-tr{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.chips{display:flex;gap:6px}
+.chipx{background:color-mix(in srgb,var(--surface) 92%,transparent);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:14px;box-shadow:0 4px 14px rgba(0,0,0,.2);font-variant-numeric:tabular-nums}
+.chipx.bump{animation:pulse .35s}
+.board:empty{display:none}
+.board h2{font-size:15px;margin-bottom:6px}
+.lead{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.lead li{display:grid;grid-template-columns:30px 1fr auto auto;gap:10px;align-items:center;padding:6px 10px;border-radius:10px;background:var(--surface-2);font-variant-numeric:tabular-nums}
+.lead li.me{outline:2px solid var(--accent);background:var(--accent-soft)}
+.lead li.gap{margin-top:8px}
+.lead .pl{font-weight:800;text-align:center}
+.lead .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600}
+.lead .sc{font-weight:700}.lead .tm{color:var(--muted);font-size:13px}
+.bonus{font-size:11px;font-weight:800;background:#facc15;color:#422006;border-radius:999px;padding:1px 6px}
+/* демонстрації 5–7 класів */
+.netd{width:100%;max-width:420px;align-self:center;border:1px solid var(--line);border-radius:12px}
+.netd .dev{cursor:pointer}
+.srch{border:1.5px solid var(--line);border-radius:12px;padding:10px;background:var(--surface)}
+.sfield{border:1.5px solid #cbd5e1;border-radius:999px;padding:8px 14px;font-size:14px;background:var(--surface-2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sres{margin:10px 0 0;padding-left:22px;font-size:14px;display:flex;flex-direction:column;gap:4px;color:var(--accent)}
+.sres li.hit{font-weight:700;color:var(--pass)}
+.sres .hint{margin-top:4px}
+.rib{display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#e2e8f0;border-radius:10px;padding:6px;color:#1f2937}
+.rtab{font-weight:700;font-size:13px;padding:0 6px;border-bottom:2px solid #c2410c}
+.slide6{min-height:130px;border:1.5px solid #94a3b8;border-radius:8px;background:#fff;display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:center;padding:10px;color:#1f2937;aspect-ratio:16/9;max-height:220px}
+.obj6{display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px dashed #94a3b8;border-radius:8px;padding:8px 12px;font-size:12px;animation:pop .25s}
+.obj6 b{font-size:26px}
+.obj6.vid{background:#0f172a;color:#fff;border-style:solid;min-width:110px}
+.vrow{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:480px){.vrow{grid-template-columns:1fr}}
+.vid6{border:1.5px solid var(--line);border-radius:10px;padding:10px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.vid6 .scr{background:#0f172a;color:#4ade80;border-radius:6px;padding:18px;text-align:center;font-weight:700}
+.vid6.off .scr{color:#f87171}
+.pj6,.mon6{border:1.5px solid var(--line);border-radius:10px;padding:8px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.show6 .ed,.show6 .sl,.mon6 .sl{background:#0f172a;color:#fff;border-radius:6px;padding:20px;text-align:center;font-weight:700}
+.show6 .ed{background:#e2e8f0;color:#334155;font-weight:500}
+.mon6 .sl.small{padding:8px}
+.mon6 .nt{background:#fef9c3;color:#713f12;border-radius:6px;padding:6px}
+.mon6 .nx{color:var(--muted)}
+.rgbsw{height:90px;border-radius:12px;border:1.5px solid var(--line)}
+.rgbcode{font-family:ui-monospace,Consolas,monospace;font-size:16px;text-align:center}
+.rgbw{display:flex;flex-direction:column;gap:6px}
+.rgbl{display:grid;grid-template-columns:20px 1fr 40px;gap:10px;align-items:center;font-weight:800}
+.rgbl input{width:100%}
+.rgbl output{text-align:right;font-variant-numeric:tabular-nums}
+/* міні-гра світу поверх сцени */
+.gamehud{position:fixed;left:50%;top:max(14px,env(safe-area-inset-top));transform:translateX(-50%);z-index:8;background:color-mix(in srgb,var(--surface) 94%,transparent);border:1.5px solid var(--accent);border-radius:14px;padding:10px 16px;max-width:min(640px,calc(100vw - 24px));text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.35);font-weight:600}
+.gamehud small{display:block;color:var(--muted);font-weight:500;font-size:13px;margin-top:2px}
+.gamehud .big{font-family:var(--display);font-size:clamp(16px,3.5vw,22px)}
+/* арена: кнопка ⚡ */
+.zapbtn{position:fixed;right:max(16px,env(safe-area-inset-right));bottom:max(90px,calc(env(safe-area-inset-bottom) + 90px));width:72px;height:72px;border-radius:50%;border:4px solid #0c4a6e;background:#38bdf8;font-size:34px;z-index:6;box-shadow:0 6px 0 #0c4a6e,0 10px 24px rgba(0,0,0,.35);cursor:pointer;touch-action:none}
+.zapbtn:active{transform:translateY(4px);box-shadow:0 2px 0 #0c4a6e}
+
+.gamehud.bottom{top:auto;bottom:max(14px,env(safe-area-inset-bottom))}
+body.ingame .hud-tl,body.ingame #qNext,body.ingame #keysHint,body.ingame #talk{display:none!important}
+@media (max-width:640px){.gamehud{padding:8px 12px}.gamehud .big{font-size:15px}.gamehud small{font-size:12px}}
+
+/* раннер: кнопки й спалах */
+.runctl{position:fixed;left:50%;transform:translateX(-50%);bottom:max(76px,calc(env(safe-area-inset-bottom) + 76px));display:flex;gap:14px;z-index:6}
+.runctl button{width:64px;height:64px;border-radius:18px;border:3px solid #1e1b4b;background:rgba(255,255,255,.88);font-size:26px;box-shadow:0 5px 0 #1e1b4b;cursor:pointer;touch-action:none;color:#1e1b4b}
+.runctl button:active{transform:translateY(4px);box-shadow:0 1px 0 #1e1b4b}
+@media (pointer:fine){.runctl{bottom:max(70px,calc(env(safe-area-inset-bottom) + 70px))}.runctl button{width:52px;height:52px;font-size:20px}}
+.flash{position:fixed;inset:0;pointer-events:none;opacity:0;z-index:5}
+.flash.on{animation:flash .45s}
+@keyframes flash{0%{opacity:.35}100%{opacity:0}}
+body.ingame .runctl{bottom:max(16px,env(safe-area-inset-bottom))}
+@media (max-width:640px){body.ingame .gamehud:not(.bottom){top:max(130px,calc(env(safe-area-inset-top) + 130px))}}
+
+/* блоки: джойстик і стрибок */
+.joy{position:fixed;left:max(18px,env(safe-area-inset-left));bottom:max(86px,calc(env(safe-area-inset-bottom) + 86px));z-index:6}
+.jbase{width:120px;height:120px;border-radius:50%;background:rgba(15,23,42,.35);border:3px solid rgba(255,255,255,.5);display:grid;place-items:center;touch-action:none}
+.jknob{width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.9);box-shadow:0 4px 10px rgba(0,0,0,.3);pointer-events:none}
+.jumpbtn{position:fixed;right:max(18px,env(safe-area-inset-right));bottom:max(96px,calc(env(safe-area-inset-bottom) + 96px));width:78px;height:78px;border-radius:50%;border:4px solid #14532d;background:#4ade80;font-size:34px;font-weight:800;color:#14532d;z-index:6;box-shadow:0 6px 0 #14532d;touch-action:none}
+.jumpbtn:active{transform:translateY(4px);box-shadow:0 2px 0 #14532d}
+body.ingame .joy{bottom:max(18px,env(safe-area-inset-bottom))}body.ingame .jumpbtn{bottom:max(24px,env(safe-area-inset-bottom))}
+
+/* тир: приціл */
+.cross{position:fixed;left:50%;top:50%;width:34px;height:34px;margin:-17px 0 0 -17px;pointer-events:none;z-index:4;border:2px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.35)}
+.cross::before,.cross::after{content:"";position:absolute;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.35)}
+.cross::before{left:50%;top:-8px;bottom:-8px;width:2px;margin-left:-1px}.cross::after{top:50%;left:-8px;right:-8px;height:2px;margin-top:-1px}
+body[data-world="range"] #stage canvas{cursor:none}
+#qNext{cursor:pointer}
+.gamehud .big.mono,.rgbcode{font-family:Consolas,"Courier New",ui-monospace,monospace;letter-spacing:.04em}

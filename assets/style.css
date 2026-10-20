@@ -669,3 +669,4 @@ svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;tou
 .questcard{border:1.5px solid color-mix(in srgb,var(--accent-2) 45%,var(--line));background:linear-gradient(135deg,color-mix(in srgb,var(--accent-2) 10%,var(--surface)),var(--surface))}
 .questcard .btn{align-self:flex-start;text-decoration:none}
 .beta{font-family:var(--body);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--accent-2);color:#fff;border-radius:999px;padding:2px 8px;vertical-align:middle}
+.questcard .lucky{margin:0;font-weight:600;color:var(--pass)}

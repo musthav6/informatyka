@@ -3,14 +3,15 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Квест</title>
+<title>Конспект-гра</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700;800&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/quest.css?v=202610202013">
+<link rel="stylesheet" href="assets/quest.css?v=202610202148">
 </head>
 <body>
-<canvas id="world" aria-label="Карта квесту"></canvas>
+<!-- Тут світ-гра малює свою сцену (canvas 2D або WebGL) -->
+<div id="stage"></div>
 
 <!-- Інтерфейс під час гри -->
 <div id="hud" hidden>
@@ -23,12 +24,16 @@
     </div>
   </div>
   <div class="hud-tr">
+    <div class="chips">
+      <span class="chipx" title="Час гри"><span aria-hidden="true">⏱</span> <b id="timer">0:00</b></span>
+      <span class="chipx coin" id="coinBox" title="Монети"><span aria-hidden="true">🪙</span> <b id="coins">0</b></span>
+    </div>
     <button class="btn book" id="bookBtn">📒 Зошит <span class="badge" id="bookN">0</span></button>
   </div>
   <div class="hud-bottom">
     <button class="btn pri talk" id="talk" hidden></button>
     <div class="next card" id="qNext"></div>
-    <div class="keys small">WASD / стрілки — ходити · клацни по підлозі чи персонажу — піти туди · E — говорити · N — зошит</div>
+    <div class="keys small" id="keysHint">WASD / стрілки — ходити · клацни по підлозі чи персонажу — піти туди · E — говорити · N — зошит</div>
   </div>
 </div>
 
@@ -39,12 +44,12 @@
     <div class="eyebrow" id="sEyebrow"></div>
     <h1 id="sTitle">Завантаження…</h1>
     <p id="sIntro"></p>
-    <ul class="how">
-      <li>📒 Приготуй <b>паперовий зошит і ручку</b>: тема — «Інтерфейс редактора двовимірної анімації».</li>
-      <li>🚶 Ходи студією: <b>WASD</b> / стрілки або просто <b>клацни</b> (торкнись) туди, куди треба піти.</li>
-      <li>💬 Говори з тим, у кого над головою <b>«!»</b>. Персонажі відкриваються по черзі, стрілка покаже, куди йти.</li>
+    <ul class="how" id="sHow">
+      <li>📒 Приготуй <b>паперовий зошит і ручку</b>: це конспект уроку, тільки у вигляді гри.</li>
+      <li>💬 Говори з тим, у кого над головою <b>«!»</b>. Персонажі відкриваються по черзі.</li>
       <li>✍️ Картку <b>«Запиши в зошит»</b> переписуй одразу: потім текст сховають і перевірять, що записано.</li>
-      <li>⭐ Музей анімації — для 12 балів. Без нього максимум — 9.</li>
+      <li>⭐ Станції із зірочкою — для 12 балів. Без них максимум — 9.</li>
+      <li>⏱ Іде час. <b>🏅 +1 бал</b> — троє найшвидших у класі, хто з першої спроби відповів правильно на все.</li>
     </ul>
     <div class="row2">
       <label class="fld">Клас<select id="cls"></select></label>
@@ -52,6 +57,7 @@
     </div>
     <p class="info" id="resume" hidden></p>
     <button class="btn pri big" id="go" disabled>Почати</button>
+    <div id="sBoard" class="board"></div>
     <p class="small muted">Робота для самостійного виконання. Не списуй. Виходи з вкладки фіксуються.</p>
   </div>
 </section>
@@ -76,13 +82,15 @@
 <!-- Результат -->
 <section class="overlay" id="res" hidden>
   <div class="card sheet">
-    <div class="eyebrow">Урок пройдено</div>
+    <div class="eyebrow">Гру пройдено</div>
     <h1 id="rTitle"></h1>
     <div class="stats">
       <div><small>Оцінка</small><b id="rGrade"></b></div>
       <div><small>Перевірок</small><b id="rScore"></b></div>
       <div><small>Час</small><b id="rTime"></b></div>
     </div>
+    <p class="info" id="rBonusHint"></p>
+    <div id="rBoard" class="board"></div>
     <ul class="rlist" id="rList"></ul>
     <h2>✍️ Звір зі своїм зошитом — чогось бракує, допиши</h2>
     <div id="rNotes"></div>
@@ -106,7 +114,7 @@
 
 <div class="toast" id="toast" role="status" hidden></div>
 
-<script src="config.js?v=202610202013"></script>
-<script src="assets/quest.js?v=202610202013"></script>
+<script src="config.js?v=202610202148"></script>
+<script src="assets/quest-core.js?v=202610202148"></script>
 </body>
 </html>
