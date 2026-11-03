@@ -643,7 +643,13 @@
       box.append(el("span", "", `◆ Кадр ${cur} — ключовий. `));
       if (n > 1) { const r = el("button", "link", "Прибрати ключовий кадр"); r.type = "button"; r.onclick = () => { snap(); delete o.keys[cur]; saveSoon(); render(); }; box.append(r); }
       else box.append(el("span", "small", "Перейди на інший кадр і зміни об'єкт — з'явиться ще один ◆, а проміжні кадри редактор обчислить сам."));
-    } else box.append(el("span", "", `Кадр ${cur} — проміжний: його обчислено автоматично. Зміниш щось — він стане ключовим ◆.`));
+    } else {
+      box.append(el("span", "", `Кадр ${cur} — проміжний: його обчислено автоматично. Зміниш щось — він стане ключовим ◆. `));
+      /* закріпити поточний стан без змін: потрібно для різкої зміни (покадрова анімація, межа сцен) */
+      const k = el("button", "link", "Зробити ключовим ◆"); k.type = "button"; k.id = "anMakeKey";
+      k.onclick = () => { snap(); o.keys[cur] = { ...propsAt(o, cur) }; saveSoon(); render(); };
+      box.append(k);
+    }
   }
   function zorder(o, d) {
     snap();
