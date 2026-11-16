@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Rubik:wght@400;500;600;700&display=swap">
-<link rel="stylesheet" href="assets/style.css?v=202611160851">
+<link rel="stylesheet" href="assets/style.css?v=202611160852">
 </head>
 <body>
 <div class="wrap wide">
@@ -58,7 +58,7 @@
       <summary class="small"><b>Що означають позначки</b></summary>
       <ul class="small" style="margin:6px 0 0;padding-left:18px">
         <li><b>👥 ім'я</b> — у цьому ж тесті є учень зі схожим ім'ям (переставлені слова, одруківка) або з цього пристрою щойно проходили під іншим іменем: можлива нова спроба «під чужим» чи зміненим іменем.</li>
-        <li><b>🔓 дод. спроба</b> — спроба понад норму (діагностувальна — друга й далі, тренажер — третя й далі). Вона відкривається лише паролем учителя.</li>
+        <li><b>🔓 дод. спроба</b> — спроба понад колишню норму (діагностувальна — друга й далі, тренажер — третя й далі). З 16.11 спроб безліч, тож це просто помітка «пробував(ла) багато разів».</li>
         <li><b>⚡ швидко</b> — менше 6 секунд на питання: схоже, клацав навмання.</li>
         <li><b>📸 темп</b> — на кожне запитання йшло майже однаково часу (10–35 с) і майже все правильно. Живі діти відповідають нерівно; рівний темп типовий для «сфоткав → спитав ШІ». Спитай усно 1–2 запитання.</li>
         <li><b>📈 стрибок</b> — оцінка виросла на 5+ балів порівняно з попередньою спробою.</li>
@@ -95,8 +95,8 @@
     <code id="hash"></code>
   </details>
 </div>
-<script src="config.js?v=202611160851"></script>
-<script src="assets/engine.js?v=202611160851"></script>
+<script src="config.js?v=202611160852"></script>
+<script src="assets/engine.js?v=202611160852"></script>
 <script>
 (function () {
   const $ = (id) => document.getElementById(id);
@@ -212,7 +212,7 @@
       }
     }
     rows.forEach((x) => {
-      if (+x.att >= (isDiag(x) ? 2 : 3)) add(x, "🔓 дод. спроба", `Спроба № ${x.att} — понад норму, відкривається лише паролем учителя`);
+      if (+x.att >= (isDiag(x) ? 2 : 3)) add(x, "🔓 дод. спроба", `Спроба № ${x.att} — понад колишню норму (спроб безліч)`);
       const sec = +x.total ? (+x.min * 60) / +x.total : 99;
       if (sec < 6) add(x, "⚡ швидко", `${sec.toFixed(1).replace(".", ",")} с на питання — схоже, клацав навмання`);
       if (+x.viol >= 2) add(x, "🚪 виходи", `Виходив із тесту ${x.viol} рази`);

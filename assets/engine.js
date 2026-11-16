@@ -58,7 +58,6 @@
     catch (e) { return new Date().getHours(); }
   }
   function checkLessonCode(input) {
-    if (checkTeacher(input)) return true;
     const s = normWord(input), h = kyivHour();
     // Слово може саме закінчуватися цифрою («klas7»), тому пробуємо годину з однієї й з двох останніх цифр.
     return [1, 2].some((k) => {
@@ -183,7 +182,8 @@
       log.push({ p: me, n: name, at: Date.now() }); store.set(DEV_KEY, log.slice(-20));
     }
     function saveRec(cls, name, r) { store.set(recKey(cls, name), r); }
-    const allowed = (r) => ATT + (r.extra || 0);
+    // з 16.11.2026 спроб безліч (CFG.UNLIMITED_ATTEMPTS), додаткових спроб за паролем більше нема; кількість спроб Денис бачить у таблиці
+    const allowed = (r) => (CFG.UNLIMITED_ATTEMPTS ? Infinity : ATT + (r.extra || 0));
 
     function start() {
       if (gated() && !unlockLesson(LESSON_ID, codeInp.value)) {
@@ -195,14 +195,7 @@
       const cls = sel.value, name = $("name").value.trim().replace(/\s+/g, " ");
       const r = rec(cls, name);
       if (r.used >= allowed(r)) { showBlocked(cls, name); return; }
-      // діагностувальна: інше ім'я з того самого пристрою — лише з паролем учителя
-      if (T.kind === "diag" && otherOnDevice(name) && !checkTeacher($("swapPwd").value)) {
-        $("swapWrap").hidden = false;
-        $("swapMsg").textContent = $("swapPwd").value ? "Неправильний пароль." : "";
-        $("swapPwd").value = ""; $("swapPwd").focus();
-        return;
-      }
-      $("swapWrap").hidden = true;
+      $("swapWrap").hidden = true;   // з 16.11.2026 інше ім'я з пристрою не блокується (спроб безліч) — лише позначка 👥 в таблиці
       newAttempt(cls, name);
     }
 
@@ -451,7 +444,7 @@
       $("rwho").textContent = `${name}, ${cls}`;
       $("rbig").textContent = `${last.g} / 12`;
       $("rbig").style.setProperty("--p", String(last.g / 12));
-      $("rstamp").textContent = last.reason || (left > 0 ? `Залишилось спроб: ${left}` : "Тест завершено");
+      $("rstamp").textContent = last.reason || (left === Infinity ? "Можна пройти ще раз" : left > 0 ? `Залишилось спроб: ${left}` : "Тест завершено");
       const rep = $("report"); rep.innerHTML = "";
       r.attempts.forEach((a) => {
         const row = document.createElement("div"); row.className = "rrow";
@@ -479,7 +472,7 @@
         }
       }
       $("again").hidden = left <= 0; $("again").onclick = () => newAttempt(cls, name);
-      setupUnlock("unlockR", cls, name, left <= 0);
+      setupUnlock("unlockR", cls, name, false);   // «Ще спроба» за паролем більше не потрібна
       $("nextStudent").hidden = false;
       if (window.EGGS && EGGS.onResult) EGGS.onResult(last.g, box, T, name);
     }
