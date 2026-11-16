@@ -73,6 +73,8 @@
      діагностувальні — якщо від введення коду минуло понад 90 хв. */
   function needCode(lessonId, kind) {
     if (!CFG.LESSON_CODE_HASH || !CODE_KINDS.includes(kind)) return false;
+    // з 16.11.2026 код потрібен лише на уроках 1–6; з 7-го уроку (усі класи) — без коду
+    if ((+String(lessonId).split("-")[1] || 0) >= (CFG.LESSON_CODE_UNTIL || 7)) return false;
     const ts = store.get(unlockKey(lessonId), 0);
     return !ts || (kind === "diag" && Date.now() - ts > DIAG_WINDOW_MS);
   }
