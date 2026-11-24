@@ -460,6 +460,8 @@ svg.scene{display:block;width:100%;height:auto;font-family:var(--body)}
 .sc-path{stroke:#94a3b8;stroke-width:1.5;stroke-dasharray:4 3}
 .sc-cell{fill:var(--surface);stroke:var(--line)}
 .sc-key{fill:var(--accent-soft);stroke:var(--accent)}
+.sc-active{fill:var(--surface);stroke:var(--accent);stroke-width:2.5}
+.sc-num{text-anchor:end;fill:var(--fg)}
 .sc-tc{font-size:12px;font-weight:600;text-anchor:middle;fill:var(--fg)}
 .sc-arrowbg{fill:#fff;stroke:#999}
 .sc-t{font-size:12px;font-weight:600;fill:var(--fg)}

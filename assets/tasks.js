@@ -3,7 +3,7 @@
      { type: "sort",  q, groups: [...], items: [["текст", "група"], ...], x }      — розклади по групах
      { type: "order", q, items: ["перший", "другий", ...], x }                    — встанови порядок
      { type: "keys",  q, keys: "Ctrl+C", alt: ["Ctrl+V", ...], x }                — натисни сполучення
-     { type: "spot",  q, scene: "window|desktop|mail|ppt|share|network|word|pptshow|animator", target: "id" | [...], x } — знайди на картинці
+     { type: "spot",  q, scene: "window|desktop|mail|ppt|share|network|word|pptshow|animator|sheet", target: "id" | [...], x } — знайди на картинці
      { type: "sim",   sim: "files|inbox|nodes|feed|color|tween", q, ..., x }      — симулятори
      { type: "probe", scene: "files|slides|mail", ask: "...", q, x }             — «Знайди й впиши»: відповідь випадкова й схована (див. нижче)
        files: start {"Папка": {"файл.txt": "file"}}, goals [{t, dir|has|not|empty|sel: "Папка/файл.txt" | bin: "ім'я" | restored: "ім'я", at}]
@@ -257,6 +257,29 @@
       g.add("rect", { x: 8, y: 114, width: 344, height: 66, rx: 6, class: "sc-ribbon" });
       btn("fromStart", 12, 120, 62, "▶", "Із", "початку"); btn("fromCurrent", 78, 120, 66, "▶", "З поточного", "слайда"); btn("setup", 148, 120, 66, "⚙️", "Налаштування", "показу");
       btn("hide", 218, 120, 62, "🙈", "Приховати", "слайд"); btn("rehearse", 284, 120, 64, "⏱️", "Репетиція", "часу");
+    } },
+    /* табличний процесор (Excel / Google Таблиці): стрічка, поле «Ім'я», рядок формул, заголовки, клітинка, маркер заповнення, аркуші */
+    sheet: { vb: "0 0 360 212", draw(g) {
+      g.add("rect", { x: 4, y: 4, width: 352, height: 204, rx: 10, class: "sc-frame" });
+      const tabs = [["file", "Файл", 38], ["home", "Основне", 54], ["insert", "Вставлення", 66], ["formulas", "Формули", 56]];
+      let x = 8;
+      tabs.forEach(([id, t, w]) => { g.spot(id, "rect", { x, y: 8, width: w - 2, height: 20, rx: 5, class: "sc-tab" + (id === "home" ? " sc-tabon" : "") }); g.text(x + (w - 2) / 2, 22, t, "sc-tabt"); x += w; });
+      g.add("rect", { x: 8, y: 31, width: 344, height: 34, rx: 6, class: "sc-ribbon" });
+      const b = (id, x, w, t) => { g.spot(id, "rect", { x, y: 34, width: w, height: 28, rx: 5, class: "sc-rbtn" }); g.text(x + w / 2, 52, t, "sc-tabt"); };
+      b("borders", 12, 56, "⊞ Межі"); b("fillcolor", 72, 62, "🪣 Заливка"); b("merge", 138, 82, "⇔ Об'єднати"); b("wrap", 224, 70, "↵ Перенос"); b("numfmt", 298, 50, "0,00");
+      g.spot("name", "rect", { x: 8, y: 69, width: 54, height: 20, rx: 4, class: "sc-field" }); g.text(35, 83, "D3", "sc-tabt");
+      g.spot("fx", "rect", { x: 66, y: 69, width: 286, height: 20, rx: 4, class: "sc-field" }); g.text(76, 83, "fx    =B3*C3", "sc-s");
+      g.add("rect", { x: 8, y: 93, width: 24, height: 16, class: "sc-cell" });
+      ["A", "B", "C", "D"].forEach((c, i) => { g.spot("col", "rect", { x: 32 + i * 80, y: 93, width: 80, height: 16, class: "sc-tbtn2" }); g.text(72 + i * 80, 105, c, "sc-tabt"); });
+      const data = [["Товар", "Ціна, грн", "Кількість", "Вартість"], ["Зошит", "25", "4", "100"], ["Ручка", "18", "3", "54"], ["Олівець", "12", "5", "60"], ["Разом", "", "", "214"]];
+      data.forEach((row, r) => {
+        const y = 109 + r * 16;
+        g.spot("row", "rect", { x: 8, y, width: 24, height: 16, class: "sc-tbtn2" }); g.text(20, y + 12, String(r + 1), "sc-tabt");
+        row.forEach((v, c) => { g.add("rect", { x: 32 + c * 80, y, width: 80, height: 16, class: "sc-paper" }); if (v) g.text(c && r ? 106 + c * 80 : 36 + c * 80, y + 12, v, "sc-s" + (c && r ? " sc-num" : "")); });
+      });
+      g.spot("cell", "rect", { x: 272, y: 141, width: 80, height: 16, class: "sc-active" }); g.text(346, 153, "54", "sc-s sc-num");
+      g.spot("fill", "rect", { x: 345, y: 152, width: 10, height: 10, rx: 2, class: "sc-send" });
+      g.spot("sheets", "rect", { x: 8, y: 191, width: 132, height: 14, rx: 4, class: "sc-tbtn2" }); g.text(74, 202, "Аркуш1 · Аркуш2 · ⊕", "sc-tabt");
     } },
     /* «Аніматор Ліцею» (animator.html): ті самі частини вікна, що й у редакторі */
     animator: { vb: "0 0 360 236", draw(g) {

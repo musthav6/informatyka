@@ -56,10 +56,10 @@
     }
     const t = findTest(a.test);
     if (!t) return null;
-    const diag = t.kind === "diag", tema = t.id.includes("tema"), sim = !!t.sim;
+    const diag = t.kind === "diag", tema = t.id.includes("tema"), pids = t.id.includes("pidsum"), sim = !!t.sim;
     return {
-      href: `test.html?t=${encodeURIComponent(t.id)}`, title: t.title, badge: diag ? (tema ? "Тематичне" : "Діагностувальна") : sim ? "Симулятор" : "Тренажер",
-      cls: diag ? "diag" : sim ? "sim" : "", icon: diag ? (tema ? "🏁" : "🎯") : sim ? "🕹️" : "🧠",
+      href: `test.html?t=${encodeURIComponent(t.id)}`, title: t.title, badge: diag ? (tema ? "Тематичне" : pids ? "Підсумкова" : "Діагностувальна") : sim ? "Симулятор" : "Тренажер",
+      cls: diag ? "diag" : sim ? "sim" : "", icon: diag ? (tema || pids ? "🏁" : "🎯") : sim ? "🕹️" : "🧠",
       meta: `${t.slots.length} ${(sim ? "завдан" : "запитан") + (fewForm(t.slots.length) ? "ня" : "ь")}${t.minutes ? " · " + t.minutes + " хв" : ""} · спроб: ${t.attempts || 1}`
     };
   }
