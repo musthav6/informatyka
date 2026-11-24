@@ -400,39 +400,88 @@
       });
       $("pPrepWrap").hidden = !(M.prep && M.prep.length);
 
-      const done = store.get(doneKey(), []);
-      const ol = $("pSteps"); ol.innerHTML = "";
-      M.steps.forEach((raw, i) => {
-        const s = typeof raw === "string" ? { t: raw } : raw;
-        const li = el("li", "step" + (done.includes(i) ? " done" : ""));
-        const lab = el("label");
-        const cb = el("input"); cb.type = "checkbox"; cb.checked = done.includes(i);
-        cb.onchange = () => {
-          const cur = new Set(store.get(doneKey(), []));
-          cb.checked ? cur.add(i) : cur.delete(i);
-          store.set(doneKey(), [...cur]); li.classList.toggle("done", cb.checked); progress();
-        };
-        lab.append(cb, el("span", "n", String(i + 1)), richEl("span", "stext", s.t));
-        li.appendChild(lab);
-        // Деталі — поза <label>, щоб клік по підказці не ставив галочку
-        if (s.how || s.hint || s.img) {
-          const ex = el("div", "step-extra");
-          if (s.how) { const how = el("ol", "how"); s.how.forEach((h) => how.appendChild(richEl("li", "", h))); ex.appendChild(how); }
-          const fig = s.img && illus(s.img); if (fig) ex.appendChild(fig);
-          if (s.hint) {
-            const d = el("details", "tip"); d.appendChild(el("summary", "", "💡 Підказка"));
-            (Array.isArray(s.hint) ? s.hint : [s.hint]).forEach((t) => d.appendChild(richEl("p", "", t)));
-            ex.appendChild(d);
-          }
-          li.appendChild(ex);
-        }
-        ol.appendChild(li);
-      });
+      // Два вигляди: «Крок за кроком» (за замовчуванням — один крок на екрані, як туторіал у грі)
+      // і «Усі кроки списком» (деталі «як саме» згорнуті). Вибір пам'ятається для всіх практичних.
+      const steps = M.steps.map((raw) => (typeof raw === "string" ? { t: raw } : raw));
+      const all = steps.length;
+      const getDone = () => new Set(store.get(doneKey(), []));
+      const setDone = (i, on) => { const cur = getDone(); on ? cur.add(i) : cur.delete(i); store.set(doneKey(), [...cur]); };
+      const curKey = () => doneKey() + ":cur";
+      const view = store.get("prac:view", "focus");
+      $("pPrepWrap").open = false;
+
       const progress = () => {
-        const n = store.get(doneKey(), []).length, all = M.steps.length;
+        const n = getDone().size;
         $("pProg").textContent = n === all ? "Усі кроки виконано — покажи результат учителеві." : `Виконано кроків: ${n} з ${all}`;
         $("pProg").className = "prog" + (n === all ? " full" : "");
       };
+      // «як саме» + підказка — у згорнутому блоці
+      const howBlock = (s, label, withImg) => {
+        if (!(s.how || s.hint || (withImg && s.img))) return null;
+        const d = el("details", "howbox"); d.appendChild(el("summary", "", label));
+        if (s.how) { const how = el("ol", "how"); s.how.forEach((h) => how.appendChild(richEl("li", "", h))); d.appendChild(how); }
+        const fig = withImg && s.img && illus(s.img); if (fig) d.appendChild(fig);
+        (Array.isArray(s.hint) ? s.hint : s.hint ? [s.hint] : []).forEach((t) => d.appendChild(richEl("p", "tipline", "💡 " + t)));
+        return d;
+      };
+
+      const ol = $("pSteps"); ol.innerHTML = "";
+      let sw = $("pView"); if (!sw) { sw = el("button", "viewsw"); sw.id = "pView"; sw.type = "button"; ol.before(sw); }
+      sw.textContent = view === "focus" ? "📋 Показати всі кроки списком" : "👣 Показувати по одному кроку";
+      sw.onclick = () => { store.set("prac:view", view === "focus" ? "list" : "focus"); draw(); };
+
+      if (view === "list") {
+        ol.className = "steps";
+        const done = getDone();
+        steps.forEach((s, i) => {
+          const li = el("li", "step" + (done.has(i) ? " done" : ""));
+          const lab = el("label");
+          const cb = el("input"); cb.type = "checkbox"; cb.checked = done.has(i);
+          cb.onchange = () => { setDone(i, cb.checked); li.classList.toggle("done", cb.checked); progress(); };
+          lab.append(cb, el("span", "n", String(i + 1)), richEl("span", "stext", s.t));
+          li.appendChild(lab);
+          const hb = howBlock(s, "🤔 Як саме?", true);
+          if (hb) { const ex = el("div", "step-extra"); ex.appendChild(hb); li.appendChild(ex); }
+          ol.appendChild(li);
+        });
+      } else {
+        ol.className = "steps focusmode";
+        const firstOpen = () => { const d = getDone(); for (let i = 0; i < all; i++) if (!d.has(i)) return i; return all; };
+        let cur = store.get(curKey(), null);
+        if (cur === null || cur > all) cur = firstOpen();
+        const show = () => {
+          store.set(curKey(), cur);
+          ol.innerHTML = "";
+          const li = el("li", "focus");
+          const dots = el("div", "fdots"); const d = getDone();
+          for (let i = 0; i < all; i++) {
+            const b = el("button", "fdot" + (d.has(i) ? " done" : "") + (i === cur ? " on" : ""), String(i + 1));
+            b.type = "button"; b.title = "Крок " + (i + 1); b.onclick = () => { cur = i; show(); };
+            dots.appendChild(b);
+          }
+          li.appendChild(dots);
+          if (cur >= all) {
+            li.append(el("p", "fdone", "🎉 Усі кроки виконано!"), el("p", "fsub", "Покажи результат учителеві."));
+            const back = el("button", "btn ghost", "← До останнього кроку"); back.type = "button";
+            back.onclick = () => { cur = all - 1; show(); };
+            li.appendChild(back);
+          } else {
+            const s = steps[cur];
+            li.appendChild(el("p", "fnum", `Крок ${cur + 1} з ${all}`));
+            li.appendChild(richEl("p", "ftext", s.t));
+            const fig = s.img && illus(s.img); if (fig) li.appendChild(fig);
+            const hb = howBlock(s, "🤔 Не знаю, як це зробити — показати", false); if (hb) li.appendChild(hb);
+            const btns = el("div", "fbtns");
+            const prev = el("button", "btn ghost", "← Назад"); prev.type = "button"; prev.disabled = cur === 0;
+            prev.onclick = () => { cur = Math.max(0, cur - 1); show(); };
+            const next = el("button", "btn", d.has(cur) ? "Далі →" : "✅ Зробив → далі"); next.type = "button";
+            next.onclick = () => { setDone(cur, true); cur += 1; show(); window.scrollTo({ top: ol.getBoundingClientRect().top + window.scrollY - 80, behavior: "smooth" }); };
+            btns.append(prev, next); li.appendChild(btns);
+          }
+          ol.appendChild(li); progress();
+        };
+        show();
+      }
       progress();
 
       // «Якщо щось не виходить»

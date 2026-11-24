@@ -670,3 +670,26 @@ svg.nodes{display:block;width:100%;max-width:380px;margin:0 auto;height:auto;tou
 .questcard .btn{align-self:flex-start;text-decoration:none}
 .beta{font-family:var(--body);font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;background:var(--accent-2);color:#fff;border-radius:999px;padding:2px 8px;vertical-align:middle}
 .questcard .lucky{margin:0;font-weight:600;color:var(--pass)}
+
+/* Практична: «Крок за кроком» і згорнуте «як саме» (24.11.2026) */
+.viewsw{align-self:flex-start;border:1.5px solid var(--line-2);background:var(--surface);color:var(--fg);border-radius:999px;padding:6px 14px;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.viewsw:hover{border-color:var(--accent)}
+details.howbox{border-radius:12px;background:var(--accent-soft);color:var(--fg);font-size:15px;padding:8px 12px}
+details.howbox > summary{cursor:pointer;font-weight:600;font-size:15px;color:var(--accent-ink)}
+details.howbox .how{margin:8px 0 2px;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+details.howbox .tipline{margin:8px 0 2px;color:var(--accent-ink)}
+.steps.focusmode{gap:0}
+.focus{border:2px solid var(--accent);border-radius:18px;padding:16px 18px;background:var(--surface);display:flex;flex-direction:column;gap:12px}
+.fdots{display:flex;flex-wrap:wrap;gap:6px}
+.fdot{width:30px;height:30px;border-radius:50%;border:1.5px solid var(--line-2);background:var(--surface-2);color:var(--muted);font:inherit;font-size:13px;font-weight:700;cursor:pointer;padding:0}
+.fdot.done{background:var(--pass);border-color:var(--pass);color:#fff}
+.fdot.on{outline:3px solid var(--accent);outline-offset:2px;color:var(--fg)}
+.fdot.on.done{color:#fff}
+.fnum{margin:0;font-size:14px;font-weight:700;color:var(--accent-ink);text-transform:uppercase;letter-spacing:.04em}
+.ftext{margin:0;font-size:22px;line-height:1.35;font-weight:600}
+.fbtns{display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+.fbtns .btn{font-size:17px;padding:12px 20px}
+.fbtns .btn:last-child{flex:1;min-width:180px}
+.fdone{margin:0;font-size:26px;font-weight:700;color:var(--pass)}
+.fsub{margin:0;font-size:18px}
+@media (max-width:520px){.ftext{font-size:19px}.focus{padding:14px}}
