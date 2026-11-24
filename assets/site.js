@@ -199,7 +199,7 @@
   }
   const richEl = (tag, cls, text) => { const e = el(tag, cls); e.appendChild(rich(text)); return e; };
 
-  /* Ілюстрації (SVG у кольорах теми). У даних: img: "disks" | "newfolder" | "name" | "save" */
+  /* Ілюстрації (SVG у кольорах теми). У даних: img: "disks" | "newfolder" | "name" | "save" | "mouse" | "start" | "ribbon" */
   const ILLUS = {
     disks: `<svg viewBox="0 0 340 200" role="img" aria-label="Вікно «Цей ПК»: диск C: закреслено, диски D: і E: позначено як дозволені">
       <rect x="1" y="1" width="338" height="198" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
@@ -284,6 +284,67 @@
       <text x="14" y="108" font-size="11" fill="var(--muted)">Тип файлу: залиш, як є</text>
       <rect x="236" y="116" width="90" height="24" rx="6" fill="var(--accent)"/>
       <text x="281" y="132" text-anchor="middle" font-size="12" font-weight="700" fill="#fff">③ Зберегти</text>
+    </svg>`,
+    mouse: `<svg viewBox="0 0 340 190" role="img" aria-label="Миша: ліва кнопка — вибрати й натиснути, права — меню, коліщатко — прокрутка">
+      <rect x="1" y="1" width="338" height="188" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <g transform="translate(18,30) scale(0.85)">
+        <path d="M0 50 Q0 0 45 0 Q90 0 90 50 L90 100 Q90 146 45 146 Q0 146 0 100 Z" fill="var(--surface-2)" stroke="var(--line-2)" stroke-width="2"/>
+        <path d="M0 50 Q0 0 45 0 L45 58 L0 58 Z" fill="var(--accent-soft)" stroke="var(--accent)" stroke-width="2"/>
+        <path d="M45 0 Q90 0 90 50 L90 58 L45 58 Z" fill="var(--warn-soft)" stroke="var(--warn)" stroke-width="2"/>
+        <rect x="39" y="14" width="12" height="28" rx="6" fill="var(--fg)"/>
+        <text x="22" y="40" text-anchor="middle" font-size="16" font-weight="700" fill="var(--accent-ink)">Л</text>
+        <text x="70" y="40" text-anchor="middle" font-size="16" font-weight="700" fill="var(--warn)">П</text>
+      </g>
+      <g font-size="11" fill="var(--fg)">
+        <text x="110" y="30" font-weight="700" fill="var(--accent-ink)">Ліва (Л) — головна</text>
+        <text x="110" y="46">1 раз — вибрати, натиснути</text>
+        <text x="110" y="62">2 рази швидко — відкрити</text>
+        <text x="110" y="92" font-weight="700" fill="var(--warn)">Права (П)</text>
+        <text x="110" y="108">1 раз — меню з командами</text>
+        <text x="110" y="138" font-weight="700">Коліщатко посередині</text>
+        <text x="110" y="154">крути — сторінка їде</text>
+        <text x="110" y="170">вгору чи вниз</text>
+      </g>
+    </svg>`,
+    start: `<svg viewBox="0 0 340 200" role="img" aria-label="Як запустити програму: кнопка Пуск у лівому нижньому куті, надрукувати назву, натиснути Enter">
+      <rect x="1" y="1" width="338" height="198" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <rect x="14" y="14" width="200" height="132" rx="8" fill="var(--surface-2)" stroke="var(--line-2)"/>
+      <rect x="24" y="24" width="180" height="26" rx="5" fill="var(--warn-soft)" stroke="var(--warn)"/>
+      <text x="32" y="41" font-size="12" font-family="ui-monospace,Consolas,monospace" fill="var(--fg)">② powerpoint</text>
+      <rect x="24" y="58" width="180" height="34" rx="5" fill="var(--accent-soft)"/>
+      <rect x="32" y="64" width="22" height="22" rx="4" fill="#C43E1C"/><text x="43" y="80" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">P</text>
+      <text x="62" y="74" font-size="12" font-weight="700" fill="var(--accent-ink)">PowerPoint</text>
+      <text x="62" y="87" font-size="10" fill="var(--muted)">Програма</text>
+      <text x="24" y="114" font-size="11" fill="var(--muted)">③ натисни Enter або клацни</text>
+      <text x="24" y="130" font-size="11" fill="var(--muted)">по значку програми</text>
+      <rect x="1" y="160" width="338" height="39" fill="var(--surface-2)"/><rect x="1" y="160" width="338" height="1" fill="var(--line-2)"/>
+      <rect x="10" y="166" width="30" height="27" rx="5" fill="var(--accent)"/>
+      <g fill="#fff"><rect x="17" y="172" width="7" height="7"/><rect x="26" y="172" width="7" height="7"/><rect x="17" y="181" width="7" height="7"/><rect x="26" y="181" width="7" height="7"/></g>
+      <rect x="46" y="167" width="120" height="25" rx="5" fill="var(--surface)" stroke="var(--line-2)"/>
+      <text x="54" y="184" font-size="11" fill="var(--muted)">🔍 Пошук</text>
+      <text x="226" y="36" font-size="11" font-weight="700" fill="var(--fg)">① Клацни «Пуск»</text>
+      <text x="226" y="52" font-size="11" fill="var(--fg)">ліворуч унизу</text>
+      <text x="226" y="68" font-size="11" fill="var(--fg)">екрана</text>
+      <path d="M262 96 Q250 150 46 174" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4"/>
+    </svg>`,
+    ribbon: `<svg viewBox="0 0 340 150" role="img" aria-label="Стрічка: спершу клацни назву вкладки вгорі, потім кнопку під нею">
+      <rect x="1" y="1" width="338" height="148" rx="12" fill="var(--surface)" stroke="var(--line-2)"/>
+      <g font-size="12" fill="var(--muted)">
+        <text x="14" y="26">Файл</text>
+        <rect x="52" y="10" width="64" height="24" rx="5" fill="var(--accent-soft)"/><text x="60" y="26" font-weight="700" fill="var(--accent-ink)">Основне</text>
+        <text x="126" y="26">Вставлення</text><text x="206" y="26">Конструктор</text><text x="290" y="26">…</text>
+      </g>
+      <rect x="10" y="40" width="320" height="56" rx="6" fill="var(--surface-2)" stroke="var(--line-2)"/>
+      <g font-size="13" font-weight="700" fill="var(--fg)">
+        <rect x="20" y="50" width="26" height="26" rx="4" fill="var(--warn-soft)" stroke="var(--warn)"/><text x="33" y="68" text-anchor="middle">Ж</text>
+        <rect x="52" y="50" width="26" height="26" rx="4" fill="var(--surface)" stroke="var(--line-2)"/><text x="65" y="68" text-anchor="middle" font-style="italic">К</text>
+        <rect x="84" y="50" width="26" height="26" rx="4" fill="var(--surface)" stroke="var(--line-2)"/><text x="97" y="68" text-anchor="middle" text-decoration="underline">Ч</text>
+        <rect x="122" y="50" width="70" height="26" rx="4" fill="var(--surface)" stroke="var(--line-2)"/><text x="130" y="68" font-weight="400" font-size="12">Arial ▾</text>
+        <rect x="198" y="50" width="40" height="26" rx="4" fill="var(--surface)" stroke="var(--line-2)"/><text x="206" y="68" font-weight="400" font-size="12">24 ▾</text>
+      </g>
+      <text x="120" y="90" font-size="10" fill="var(--muted)">група «Шрифт»</text>
+      <text x="14" y="118" font-size="12" fill="var(--fg)"><tspan font-weight="700" fill="var(--accent-ink)">① вкладка</tspan> — слово вгорі, клацни його</text>
+      <text x="14" y="138" font-size="12" fill="var(--fg)"><tspan font-weight="700" fill="var(--warn)">② кнопка</tspan> — під вкладкою, клацни її</text>
     </svg>`
   };
   const illus = (key) => { if (!ILLUS[key]) return null; const f = el("figure", "illus"); f.innerHTML = ILLUS[key]; return f; };
@@ -314,7 +375,8 @@
     let mode = store.get(modeKey, p.first || null);
     if (!modes.includes(mode)) mode = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) && modes.includes("phone") ? "phone" : modes[0];
     // :2 — кроки переписано (жовтень 2026), старі галочки не підходять за номерами
-    const doneKey = () => `prac:${p.id}:${mode}:2`;
+    // p.v — версія кроків конкретної практичної (переписали кроки → підняти v, старі галочки скинуться)
+    const doneKey = () => `prac:${p.id}:${mode}:${p.v || 2}`;
 
     const draw = () => {
       const tabs = $("pTabs"); tabs.innerHTML = ""; tabs.hidden = modes.length < 2;
@@ -328,7 +390,9 @@
 
       // «Перш ніж почати» — що означають слова з завдання
       const prep = $("pPrep"); prep.innerHTML = "";
-      (M.prep || []).forEach((it) => {
+      (M.prep || []).forEach((raw) => {
+        // рядок-ключ зі спільного довідника PRACTICE_PREP (practice/index.js): "mouse", "start", "ribbon"…
+        const it = typeof raw === "string" && (window.PRACTICE_PREP || {})[raw] || raw;
         const box = el("div", "prep-item");
         box.appendChild(richEl("p", "", typeof it === "string" ? it : it.t));
         const fig = it.img && illus(it.img); if (fig) box.appendChild(fig);
